@@ -1,0 +1,62 @@
+# --- Python backend (trong folder backend/) ---
+backend/venv/
+backend/.venv/
+backend/env/
+backend/ENV/
+
+backend/__pycache__/
+backend/**/*.py[cod]
+backend/**/*.pyo
+backend/**/*.pyd
+
+# Nếu backend có folder build, dist, logs:
+backend/dist/
+backend/build/
+backend/logs/
+
+# --- Model weights & data dùng cho backend ---
+backend/checkpoints/
+backend/models/
+backend/weights/
+backend/model_checkpoints/
+backend/outputs/
+backend/runs/
+
+# Đuôi file model phổ biến
+backend/**/*.pt
+backend/**/*.pth
+backend/**/*.ckpt
+backend/**/*.safetensors
+backend/**/*.onnx
+backend/**/*.tflite
+backend/**/*.h5
+backend/**/*.pb
+
+# Dataset / file lớn (tùy bạn có dùng không)
+backend/data/
+backend/datasets/
+backend/**/*.zip
+backend/**/*.tar
+backend/**/*.tar.gz
+backend/**/*.npz
+backend/**/*.npy
+
+# --- Secrets / env cho toàn project ---
+.env
+.env.*
+*.env
+*.env.local
+
+# File secret riêng
+secrets.json
+secret*.json
+config.secret.*
+*.key
+*.pem
+
+# --- IDE / hệ điều hành (áp dụng cho cả repo) ---
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
