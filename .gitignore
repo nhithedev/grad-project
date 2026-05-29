@@ -9,6 +9,7 @@ backend/**/*.py[cod]
 backend/**/*.pyo
 backend/**/*.pyd
 
+
 # Nếu backend có folder build, dist, logs:
 backend/dist/
 backend/build/
@@ -53,6 +54,15 @@ secret*.json
 config.secret.*
 *.key
 *.pem
+CLAUDE.md
+.claude
+.claude-plugin
+.claude-plugin/*
+.claude/*
+.claude/settings.json
+.claude-cache
+.claude/*
+.claude/
 
 # --- IDE / hệ điều hành (áp dụng cho cả repo) ---
 .vscode/
@@ -60,3 +70,34 @@ config.secret.*
 *.swp
 .DS_Store
 Thumbs.db
+
+# --- YouTube Filter (Plasmo Chrome Extension) ---
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# misc
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# local env files
+.env*.local
+
+out/
+**/build/
+dist/
+
+# plasmo
+*.plasmo
+
+# typescript
+.tsbuildinfo
