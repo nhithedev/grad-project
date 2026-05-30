@@ -3,16 +3,21 @@
 import { settingsRepository } from "~data/repositories/settings.repository"
 import { rulesRepository } from "~data/repositories/rules.repository"
 import { entitiesRepository } from "~data/repositories/entities.repository"
+import { matchLogRepository } from "~data/repositories/match-log.repository"
+import { db } from "~data/db/app-db"
 import type {
+  CacheEntitiesBatchPayload,
   CacheEntityPayload,
   CreateRulePayload,
   GetRulesByTypePayload,
+  LogMatchPayload,
   Message,
   MessageResponse,
   ToggleRulePayload,
   UpdateRulePayload
 } from "~core/messages"
 import type { Settings } from "~core/types/settings"
+import { nowIso } from "~data/utils/normalize"
 
 chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
   handleMessage(message)
@@ -131,11 +136,45 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
   }
 }
 
-    case "REFRESH_HIGHLIGHTS":
-      return {
-        success: true,
-        data: { ok: true }
+    case "LOG_MATCH": {
+      const payload = message.payload as LogMatchPayload
+      await matchLogRepository.addLog({ ...payload, matchedAt: nowIso() })
+      return { success: true, data: { ok: true } }
+    }
+
+    case "GET_MATCH_LOGS":
+      return { success: true, data: await matchLogRepository.getRecent() }
+
+    case "CLEAR_MATCH_LOGS":
+      await matchLogRepository.clearAll()
+      return { success: true, data: { ok: true } }
+
+    case "CACHE_ENTITIES_BATCH": {
+      const { entities } = message.payload as CacheEntitiesBatchPayload
+      await db.transaction("rw", db.entitiesCache, async () => {
+        for (const payload of entities) {
+          await entitiesRepository.upsertEntity({
+            videoId: payload.videoId,
+            channelId: payload.channelId,
+            channelName: payload.channelName,
+            title: payload.title,
+            pageType: payload.pageType,
+            url: payload.url,
+          })
+        }
+      })
+      return { success: true, data: { count: entities.length } }
+    }
+
+    case "REFRESH_HIGHLIGHTS": {
+      const tabs = await chrome.tabs.query({ url: "https://www.youtube.com/*" })
+      for (const tab of tabs) {
+        if (tab.id) {
+          chrome.tabs.sendMessage(tab.id, { type: "REFRESH_HIGHLIGHTS" }).catch(() => {})
+        }
       }
+      return { success: true, data: { ok: true } }
+    }
 
     case "PING":
       return {

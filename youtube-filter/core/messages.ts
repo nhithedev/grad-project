@@ -14,6 +14,10 @@ export type MessageType =
   | "GET_PARSED_CANDIDATES"
   | "CLEAR_PARSED_CANDIDATES"
   | "CACHE_ENTITY"
+  | "CACHE_ENTITIES_BATCH"
+  | "LOG_MATCH"
+  | "GET_MATCH_LOGS"
+  | "CLEAR_MATCH_LOGS"
   | "REFRESH_HIGHLIGHTS"
   | "PING"
 
@@ -56,6 +60,21 @@ export interface CacheEntityPayload {
   title: string
   pageType: YouTubePageType
   url?: string
+}
+
+export interface LogMatchPayload {
+  videoId: string
+  title: string
+  channelName?: string
+  ruleId: number
+  ruleType: string
+  ruleTarget: string
+  action: "hide" | "flag"
+  reason: string
+}
+
+export interface CacheEntitiesBatchPayload {
+  entities: CacheEntityPayload[]
 }
 
 export type GetSettingsResponse = MessageResponse<Settings>

@@ -1,8 +1,10 @@
 import type { PlasmoCSConfig } from "plasmo"
-import { getCandidateContainers, getPageType, parseVideoCard } from "~contents/youtube-parser"
+import { getCandidateContainers, parseVideoCard, getPageType } from "~contents/youtube-parser"
 import { initYouTubeParser } from "~contents/parser"
 import type { Rule } from "~core/types/rule"
-import { normalizeText } from "~data/utils/normalize"
+import type { Settings } from "~core/types/settings"
+import type { EntityCache } from "~core/types/entity"
+import { evaluate } from "~core/rule-engine"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.youtube.com/*"]
@@ -40,122 +42,216 @@ function injectStyles() {
     .yt-filter-hidden {
       display: none !important;
     }
+    .yt-filter-reason {
+      position: absolute;
+      bottom: 4px;
+      left: 4px;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 3px;
+      z-index: 9999;
+      pointer-events: none;
+      max-width: 90%;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    /* Placeholder hiển thị thay cho video bị hide khi debugMode */
+    .yt-filter-hide-placeholder {
+      box-sizing: border-box;
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(180, 0, 0, 0.08);
+      border: 1px dashed rgba(180, 0, 0, 0.35);
+      border-radius: 8px;
+      color: rgba(180, 0, 0, 0.7);
+      font-size: 11px;
+      font-family: sans-serif;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    .yt-filter-hide-placeholder::before {
+      content: "🚫";
+      font-size: 13px;
+      flex-shrink: 0;
+    }
   `
   document.head.appendChild(style)
-}
-
-// ─── Rule matching ────────────────────────────────────────────────────────────
-
-function matchesRule(
-  rule: Rule,
-  candidate: { title: string; channelName?: string; channelId?: string; videoId: string }
-): boolean {
-  if (!rule.enabled) return false
-
-  const target = rule.targetNormalized
-
-  switch (rule.type) {
-    case "keyword":
-      return (
-        normalizeText(candidate.title).includes(target) ||
-        (candidate.channelName ? normalizeText(candidate.channelName).includes(target) : false)
-      )
-    case "channelName":
-      return candidate.channelName
-        ? normalizeText(candidate.channelName).includes(target)
-        : false
-    case "channelId":
-      return candidate.channelId
-        ? normalizeText(candidate.channelId) === target
-        : false
-    case "videoId":
-      return normalizeText(candidate.videoId) === target
-    default:
-      return false
-  }
-}
-
-function getBestAction(
-  rules: Rule[],
-  candidate: { title: string; channelName?: string; channelId?: string; videoId: string }
-): "hide" | "flag" | null {
-  let hasFlagged = false
-
-  for (const rule of rules) {
-    if (!matchesRule(rule, candidate)) continue
-    if (rule.action === "hide") return "hide"   // hide beats flag
-    if (rule.action === "flag") hasFlagged = true
-  }
-
-  return hasFlagged ? "flag" : null
 }
 
 // ─── DOM helpers ─────────────────────────────────────────────────────────────
 
 const FILTER_ATTR = "data-yt-filter"
+const PLACEHOLDER_ATTR = "data-yt-filter-placeholder-for"
 
 function getContainerElement(el: Element): Element {
-  // For watch page we get <a> tags — climb to the card wrapper
   return (
     el.closest(
-      "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, ytd-compact-video-renderer"
-    ) || el
+      "ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-reel-item-renderer"
+    ) || el.closest("yt-lockup-view-model") || el
   )
 }
 
 function clearPreviousMarks(el: Element) {
   el.classList.remove("yt-filter-flagged", "yt-filter-hidden")
   el.removeAttribute(FILTER_ATTR)
+  el.querySelector(".yt-filter-reason")?.remove()
 }
 
-// ─── Main apply pass ──────────────────────────────────────────────────────────
+function removePlaceholderFor(containerEl: Element) {
+  const videoId = containerEl.getAttribute("data-yt-filter-video-id")
+  if (videoId) {
+    document.querySelector(`[${PLACEHOLDER_ATTR}="${videoId}"]`)?.remove()
+  }
+}
+
+function insertHidePlaceholder(containerEl: Element, reason: string, videoId: string) {
+  // Avoid duplicate
+  if (document.querySelector(`[${PLACEHOLDER_ATTR}="${videoId}"]`)) return
+
+  containerEl.setAttribute("data-yt-filter-video-id", videoId)
+
+  const placeholder = document.createElement("div")
+  placeholder.className = "yt-filter-hide-placeholder"
+  placeholder.setAttribute(PLACEHOLDER_ATTR, videoId)
+  placeholder.textContent = `Đã ẩn: ${reason}`
+
+  containerEl.parentElement?.insertBefore(placeholder, containerEl)
+}
+
+// ─── Data loading ─────────────────────────────────────────────────────────────
 
 async function loadRules(): Promise<Rule[]> {
   try {
     const response = await chrome.runtime.sendMessage({ type: "GET_ALL_RULES" })
-    if (response?.success && Array.isArray(response.data)) {
-      return response.data as Rule[]
-    }
+    if (response?.success && Array.isArray(response.data)) return response.data as Rule[]
   } catch (err) {
     console.error("[Highlights] failed to load rules:", err)
   }
   return []
 }
 
-async function applyHighlights() {
-  const rules = await loadRules()
+async function loadSettings(): Promise<Settings | null> {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GET_SETTINGS" })
+    if (response?.success && response.data) return response.data as Settings
+  } catch (err) {
+    console.error("[Highlights] failed to load settings:", err)
+  }
+  return null
+}
 
-  if (rules.length === 0) {
-    // No rules — clear any leftover marks and exit
-    document
-      .querySelectorAll("[data-yt-filter]")
-      .forEach((el) => clearPreviousMarks(el))
+async function loadEntityCache(): Promise<Map<string, EntityCache>> {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GET_PARSED_CANDIDATES" })
+    if (response?.success && Array.isArray(response.data)) {
+      return new Map((response.data as EntityCache[]).map((e) => [e.videoId, e]))
+    }
+  } catch (err) {
+    console.error("[Highlights] failed to load entity cache:", err)
+  }
+  return new Map()
+}
+
+// ─── Main apply pass ──────────────────────────────────────────────────────────
+
+async function applyHighlights() {
+  const [rules, settings, entityCache] = await Promise.all([
+    loadRules(),
+    loadSettings(),
+    loadEntityCache(),
+  ])
+
+  if (!settings) return
+  document.querySelectorAll(`[${PLACEHOLDER_ATTR}]`).forEach((el) => el.remove())
+
+  if (rules.length === 0 || !settings.enabled) {
+    document.querySelectorAll("[data-yt-filter]").forEach((el) => clearPreviousMarks(el))
     return
   }
 
   const containers = getCandidateContainers()
+  const pageType = getPageType()
   let flagCount = 0
   let hideCount = 0
 
   for (const el of containers) {
-    const candidate = parseVideoCard(el)
+    let candidate = parseVideoCard(el)
     const containerEl = getContainerElement(el)
-
-    // Always clear first so stale marks don't linger after rule changes
-    clearPreviousMarks(containerEl)
 
     if (!candidate) continue
 
-    const action = getBestAction(rules, candidate)
+    // ── Enrich từ entity cache ─────────────────────────────────────────────
+    if (!candidate.channelName || pageType === "watch") {
+      const cached = entityCache.get(candidate.videoId)
+      if (cached) {
+        candidate = {
+          ...candidate,
+          channelName: candidate.channelName ?? cached.channelName,
+          channelId: candidate.channelId ?? cached.channelId,
+        }
+      } else if (pageType === "watch") {
+        // Cache miss trên watch page — skip thay vì clear flag cũ
+        continue
+      }
+    }
 
-    if (action === "flag") {
+    removePlaceholderFor(containerEl)
+    clearPreviousMarks(containerEl)
+
+    const decision = evaluate({ candidate, rules, settings })
+
+    if (decision.action === "flag") {
       containerEl.classList.add("yt-filter-flagged")
       containerEl.setAttribute(FILTER_ATTR, "flagged")
       flagCount++
-    } else if (action === "hide") {
+    } else if (decision.action === "hide") {
       containerEl.classList.add("yt-filter-hidden")
       containerEl.setAttribute(FILTER_ATTR, "hidden")
       hideCount++
+    }
+
+    if (decision.action !== "allow") {
+      const winnerRule = rules.find((r) => r.id === decision.matchedRuleIds[0])
+      console.log("[Highlights] match:", {
+        action: decision.action,
+        reason: decision.reason,
+        videoId: candidate.videoId,
+        title: candidate.title,
+        channel: candidate.channelName,
+      })
+      if (winnerRule?.id) {
+        void chrome.runtime.sendMessage({
+          type: "LOG_MATCH",
+          payload: {
+            videoId: candidate.videoId,
+            title: candidate.title,
+            channelName: candidate.channelName,
+            ruleId: winnerRule.id,
+            ruleType: winnerRule.type,
+            ruleTarget: winnerRule.targetRaw,
+            action: decision.action,
+            reason: decision.reason,
+          },
+        })
+      }
+    }
+
+    if (settings.debugMode) {
+      if (decision.action === "flag") {
+        // Toast bên trong container (vẫn visible vì không bị hide)
+        const toast = document.createElement("div")
+        toast.className = "yt-filter-reason"
+        toast.textContent = `[flag] ${decision.reason}`
+        ;(containerEl as HTMLElement).style.position = "relative"
+        containerEl.appendChild(toast)
+      } else if (decision.action === "hide") {
+        // Container bị display:none — insert placeholder bên ngoài thay thế
+        insertHidePlaceholder(containerEl, decision.reason, candidate.videoId)
+      }
     }
   }
 
@@ -180,7 +276,6 @@ function startHighlightObserver() {
   highlightObserver = new MutationObserver(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href
-      // Page navigation — wait for YouTube SPA to settle
       window.setTimeout(() => void applyHighlights(), 900)
       window.setTimeout(() => void applyHighlights(), 1900)
     }
@@ -195,15 +290,13 @@ function startHighlightObserver() {
 console.log("[Highlights] content script loaded")
 
 injectStyles()
-initYouTubeParser()    // cache entities as before
+initYouTubeParser()
 startHighlightObserver()
 
-// Initial scan — stagger to catch YouTube's lazy render
 void applyHighlights()
 window.setTimeout(() => void applyHighlights(), 1200)
 window.setTimeout(() => void applyHighlights(), 2500)
 
-// Listen for rule changes from popup/options
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "REFRESH_HIGHLIGHTS") {
     console.log("[Highlights] refresh requested")
