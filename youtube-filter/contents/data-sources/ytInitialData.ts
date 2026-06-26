@@ -76,7 +76,9 @@ function walkForRenderers(
   lockups: LockupViewModel[],
   depth = 0
 ) {
-  if (depth > 12 || !obj || typeof obj !== "object") return
+  // Tăng depth limit lên 16 để không miss renderer trên watch page
+  // (ytInitialData của watch page có cấu trúc sâu hơn home/search)
+  if (depth > 16 || !obj || typeof obj !== "object") return
   if (Array.isArray(obj)) {
     for (const item of obj) walkForRenderers(item, classic, lockups, depth + 1)
     return

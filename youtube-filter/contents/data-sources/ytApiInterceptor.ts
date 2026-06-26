@@ -47,7 +47,7 @@ function parseLockup(r: LockupViewModel): VideoData | null {
 const CLASSIC_KEYS = ["compactVideoRenderer", "videoRenderer", "gridVideoRenderer"]
 
 function walkForRenderers(obj: unknown, classic: YtRenderer[], lockups: LockupViewModel[], depth = 0) {
-  if (depth > 12 || !obj || typeof obj !== "object") return
+  if (depth > 16 || !obj || typeof obj !== "object") return
   if (Array.isArray(obj)) {
     for (const item of obj) walkForRenderers(item, classic, lockups, depth + 1)
     return
@@ -91,8 +91,18 @@ function parseBody(body: unknown): VideoData[] {
   return Array.from(map.values())
 }
 
+// ─── Callback khi có data mới từ interceptor ──────────────────────────────────
+type OnDataCallback = (items: VideoData[]) => void
+let onDataCallback: OnDataCallback | null = null
+
+export function setOnDataCallback(cb: OnDataCallback) {
+  onDataCallback = cb
+}
+
+// ─── Pending store + interceptor ─────────────────────────────────────────────
 const pending = new Map<string, VideoData>()
 let interceptInstalled = false
+let hasNewData = false  // flag: chỉ drain pending khi thực sự có data mới từ API
 
 function installInterceptor() {
   if (interceptInstalled) return
@@ -104,7 +114,8 @@ function installInterceptor() {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : (input as Request).url
     if (url.includes("/youtubei/v1/next")) {
       response.clone().json().then((body: unknown) => {
-        for (const item of parseBody(body)) {
+        const items = parseBody(body)
+        for (const item of items) {
           const existing = pending.get(item.videoId)
           pending.set(item.videoId, existing
             ? { ...existing, ...Object.fromEntries(Object.entries(item).filter(([, v]) => v != null && v !== "")) }
@@ -112,6 +123,12 @@ function installInterceptor() {
           )
         }
         console.log(`[ytApiInterceptor] captured ${pending.size} total pending items`)
+
+        if (items.length > 0) {
+          hasNewData = true
+          // Notify parser ngay khi có data mới — callback sẽ gọi extract() drain pending
+          if (onDataCallback) onDataCallback(items)
+        }
       }).catch(() => {})
     }
     return response
@@ -120,8 +137,12 @@ function installInterceptor() {
 
 export const ytApiInterceptorSource: DataSource = {
   name: "ytApiInterceptor",
-  isAvailable() { return interceptInstalled },
+  // isAvailable trả true chỉ khi có data mới chưa được drain
+  // → tránh MutationObserver scan drain pending sớm trước khi callback kịp gọi
+  isAvailable() { return interceptInstalled && hasNewData },
   extract(): VideoData[] {
+    if (!hasNewData) return []
+    hasNewData = false
     const items = Array.from(pending.values())
     pending.clear()
     return items

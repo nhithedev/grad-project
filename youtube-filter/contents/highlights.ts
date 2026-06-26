@@ -185,18 +185,21 @@ async function applyHighlights() {
     if (!candidate) continue
 
     // ── Enrich từ entity cache ─────────────────────────────────────────────
-    if (!candidate.channelName || pageType === "watch") {
-      const cached = entityCache.get(candidate.videoId)
-      if (cached) {
-        candidate = {
-          ...candidate,
-          channelName: candidate.channelName ?? cached.channelName,
-          channelId: candidate.channelId ?? cached.channelId,
-        }
-      } else if (pageType === "watch") {
-        // Cache miss trên watch page — skip thay vì clear flag cũ
-        continue
+    // Luôn enrich nếu cache có entry — bất kể page type
+    const cached = entityCache.get(candidate.videoId)
+    if (cached) {
+      candidate = {
+        ...candidate,
+        channelName: candidate.channelName ?? cached.channelName,
+        channelId: candidate.channelId ?? cached.channelId,
       }
+    }
+
+    // Trên watch page: chỉ skip nếu THỰC SỰ không có đủ data để evaluate
+    // (thiếu cả channelName lẫn channelId — rule keyword/title vẫn có thể chạy)
+    if (pageType === "watch" && !candidate.channelName && !candidate.channelId && !cached) {
+      console.log("[Highlights] watch page cache miss — skip", { videoId: candidate.videoId })
+      continue
     }
 
     removePlaceholderFor(containerEl)

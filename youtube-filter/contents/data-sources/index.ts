@@ -26,6 +26,7 @@ const sources: DataSource[] = []
 export function registerDataSource(source: DataSource) {
   if (!sources.find((s) => s.name === source.name)) {
     sources.push(source)
+    console.log('[DataSources] registered:', source.name)  // ← thêm dòng này tạm thời
   }
 }
 
