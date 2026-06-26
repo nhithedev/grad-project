@@ -5,4 +5,5 @@ export interface Settings {
   defaultAction: DefaultAction
   debugMode: boolean
   matchScopes: string[]
+  activeProfileId: number | null
 }

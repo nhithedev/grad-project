@@ -3,15 +3,24 @@ import { normalizeText, nowIso } from "~data/utils/normalize"
 import type { Rule, RuleAction, RuleList, RuleType } from "~core/types/rule"
 
 export class RulesRepository {
-  async ensureDefaultList(): Promise<number> {
-    const existing = await db.ruleLists.toCollection().first()
-
-    if (existing?.id) {
-      return existing.id
+  async ensureDefaultList(profileId?: number | null): Promise<number> {
+    if (profileId != null) {
+      const existing = await db.ruleLists.where("profileId").equals(profileId).first()
+      if (existing?.id) return existing.id
+      const now = nowIso()
+      return db.ruleLists.add({
+        profileId,
+        name: "Danh sách mặc định",
+        enabled: true,
+        createdAt: now,
+        updatedAt: now
+      } as RuleList)
     }
 
-    const now = nowIso()
+    const existing = await db.ruleLists.toCollection().first()
+    if (existing?.id) return existing.id
 
+    const now = nowIso()
     return db.ruleLists.add({
       name: "Default Blocklist",
       description: "Default local rule list",
@@ -25,7 +34,14 @@ export class RulesRepository {
     return db.ruleLists.toArray()
   }
 
-  async getAllRules(): Promise<Rule[]> {
+  async getAllRules(profileId?: number | null): Promise<Rule[]> {
+    if (profileId != null) {
+      const lists = await db.ruleLists.where("profileId").equals(profileId).toArray()
+      if (lists.length === 0) return []
+      const listIds = lists.map((l) => l.id!).filter(Boolean)
+      const rules = await db.rules.where("listId").anyOf(listIds).toArray()
+      return rules.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    }
     return db.rules.orderBy("updatedAt").reverse().toArray()
   }
 
@@ -38,8 +54,9 @@ export class RulesRepository {
     targetRaw: string
     action?: RuleAction
     note?: string
+    profileId?: number | null
   }) {
-    const listId = await this.ensureDefaultList()
+    const listId = await this.ensureDefaultList(input.profileId)
     const normalized = normalizeText(input.targetRaw)
 
     const existing = await db.rules

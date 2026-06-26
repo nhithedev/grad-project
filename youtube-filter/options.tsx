@@ -2,10 +2,14 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { Rule, RuleType, RuleAction } from "~core/types/rule"
 import type { Settings } from "~core/types/settings"
 import type { MatchLog } from "~core/types/match-log"
+import type { Profile } from "~core/types/profile"
 import type {
   CreateRulePayload,
+  DeleteProfilePayload,
+  GetAllRulesPayload,
   Message,
   MessageResponse,
+  SetActiveProfilePayload,
   ToggleRulePayload,
   UpdateRulePayload,
 } from "~core/messages"
@@ -403,6 +407,45 @@ const css = `
   .import-status { font-size: 11px; color: #16a34a; }
   .import-status.error { color: #dc2626; }
 
+  /* profile bar */
+  .profile-bar {
+    padding: 8px 24px;
+    border-bottom: 1px solid #ebebeb;
+    background: #f9f9f9;
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .profile-bar-label {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
+    text-transform: uppercase; color: #bbbbbb; flex-shrink: 0;
+  }
+  .profile-select {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    background: #ffffff; border: 1px solid #e0e0e0;
+    border-radius: 7px; padding: 5px 9px;
+    color: #333333; cursor: pointer; outline: none;
+    transition: border-color 0.15s;
+  }
+  .profile-select:focus { border-color: #ff3d3d88; }
+  .profile-active-badge {
+    font-size: 10px; font-weight: 500;
+    background: #fff0f0; color: #ff3d3d;
+    border: 1px solid #ffd4d4;
+    border-radius: 4px; padding: 2px 7px;
+    font-family: 'DM Mono', monospace;
+  }
+  .profile-create-row { display: flex; gap: 6px; align-items: center; margin-left: auto; }
+  .profile-create-input {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: #ffffff; border: 1px solid #e0e0e0;
+    border-radius: 6px; padding: 5px 8px;
+    color: #111111; outline: none; width: 140px;
+    transition: border-color 0.15s;
+  }
+  .profile-create-input::placeholder { color: #cccccc; }
+  .profile-create-input:focus { border-color: #ff3d3d88; }
+
   @keyframes slideIn {
     from { opacity: 0; transform: translateY(-6px); }
     to   { opacity: 1; transform: none; }
@@ -465,19 +508,30 @@ export default function OptionsPage() {
   const [logs, setLogs]             = useState<MatchLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
 
+  // profiles
+  const [profiles, setProfiles]         = useState<Profile[]>([])
+  const [viewProfileId, setViewProfileId] = useState<number | null>(null)
+  const [newProfileName, setNewProfileName] = useState("")
+
   useEffect(() => {
     void load()
   }, [])
 
   async function load() {
     try {
-      const [r, s] = await Promise.all([
-        send<Rule[]>({ type: "GET_ALL_RULES" }),
+      const [s, p] = await Promise.all([
         send<Settings>({ type: "GET_SETTINGS" }),
+        send<Profile[]>({ type: "GET_PROFILES" }),
       ])
-      setRules(r)
       setSettings(s)
+      setProfiles(p)
       setNewAction(s.defaultAction ?? "hide")
+
+      const initProfileId = s.activeProfileId ?? p[0]?.id ?? null
+      setViewProfileId(initProfileId)
+      const payload: GetAllRulesPayload = { profileId: initProfileId }
+      const r = await send<Rule[]>({ type: "GET_ALL_RULES", payload })
+      setRules(r)
     } finally {
       setLoading(false)
     }
@@ -538,7 +592,7 @@ export default function OptionsPage() {
     }
 
     setFormError("")
-    const payload: CreateRulePayload = { type: ruleType, targetRaw: ruleTarget, action: newAction }
+    const payload: CreateRulePayload = { type: ruleType, targetRaw: ruleTarget, action: newAction, profileId: viewProfileId }
     const updated = await send<Rule[]>({ type: "CREATE_RULE", payload })
     setRules(updated)
     setNewTarget("")
@@ -547,14 +601,14 @@ export default function OptionsPage() {
 
   async function deleteRule(id?: number) {
     if (!id) return
-    const updated = await send<Rule[]>({ type: "DELETE_RULE", payload: id })
+    const updated = await send<Rule[]>({ type: "DELETE_RULE", payload: { id, profileId: viewProfileId } })
     setRules(updated)
     await refreshTabs()
   }
 
   async function toggleEnabled(rule: Rule) {
     if (!rule.id) return
-    const payload: ToggleRulePayload = { id: rule.id, enabled: !rule.enabled }
+    const payload: ToggleRulePayload = { id: rule.id, enabled: !rule.enabled, profileId: viewProfileId }
     const updated = await send<Rule[]>({ type: "SET_RULE_ENABLED", payload })
     setRules(updated)
     await refreshTabs()
@@ -562,7 +616,7 @@ export default function OptionsPage() {
 
   async function changeAction(rule: Rule, action: RuleAction) {
     if (!rule.id || rule.action === action) return
-    const payload: UpdateRulePayload = { id: rule.id, patch: { action } }
+    const payload: UpdateRulePayload = { id: rule.id, patch: { action }, profileId: viewProfileId }
     const updated = await send<Rule[]>({ type: "UPDATE_RULE", payload })
     setRules(updated)
     await refreshTabs()
@@ -573,7 +627,7 @@ export default function OptionsPage() {
     const trimmed = editValue.trim()
     if (!trimmed) { setFormError("Không được để trống."); return }
     setFormError("")
-    const payload: UpdateRulePayload = { id: editId, patch: { targetRaw: trimmed } }
+    const payload: UpdateRulePayload = { id: editId, patch: { targetRaw: trimmed }, profileId: viewProfileId }
     const updated = await send<Rule[]>({ type: "UPDATE_RULE", payload })
     setRules(updated)
     setEditId(null)
@@ -602,16 +656,56 @@ export default function OptionsPage() {
       let count = 0
       for (const r of parsed) {
         if (!r.type || !r.targetRaw) continue
-        await send<Rule[]>({ type: "CREATE_RULE", payload: { type: r.type, targetRaw: r.targetRaw, action: r.action } })
+        await send<Rule[]>({ type: "CREATE_RULE", payload: { type: r.type, targetRaw: r.targetRaw, action: r.action, profileId: viewProfileId } })
         count++
       }
-      const updated = await send<Rule[]>({ type: "GET_ALL_RULES" })
+      const payload: GetAllRulesPayload = { profileId: viewProfileId }
+      const updated = await send<Rule[]>({ type: "GET_ALL_RULES", payload })
       setRules(updated)
       setImportMsg(`Đã import ${count} rules.`)
       await refreshTabs()
     } catch {
       setImportMsg("Lỗi đọc file."); setImportErr(true)
     }
+  }
+
+  // ── profile actions ───────────────────────────────────────────────────────
+
+  async function switchViewProfile(profileId: number | null) {
+    setViewProfileId(profileId)
+    const payload: GetAllRulesPayload = { profileId }
+    const r = await send<Rule[]>({ type: "GET_ALL_RULES", payload })
+    setRules(r)
+    setFilter("all")
+  }
+
+  async function createProfile() {
+    const name = newProfileName.trim()
+    if (!name) return
+    const updated = await send<Profile[]>({ type: "CREATE_PROFILE", payload: { name } })
+    setProfiles(updated)
+    setNewProfileName("")
+    const newProfile = updated[updated.length - 1]
+    if (newProfile?.id) await switchViewProfile(newProfile.id)
+  }
+
+  async function deleteCurrentProfile() {
+    if (!viewProfileId) return
+    const payload: DeleteProfilePayload = { id: viewProfileId }
+    const updated = await send<Profile[]>({ type: "DELETE_PROFILE", payload })
+    setProfiles(updated)
+    const updatedSettings = await send<Settings>({ type: "GET_SETTINGS" })
+    setSettings(updatedSettings)
+    const nextId = updated[0]?.id ?? null
+    await switchViewProfile(nextId)
+    await refreshTabs()
+  }
+
+  async function useThisProfile() {
+    const payload: SetActiveProfilePayload = { profileId: viewProfileId }
+    const updatedSettings = await send<Settings>({ type: "SET_ACTIVE_PROFILE", payload })
+    setSettings(updatedSettings)
+    await refreshTabs()
   }
 
   // ── derived ───────────────────────────────────────────────────────────────
@@ -766,6 +860,67 @@ export default function OptionsPage() {
                     Import
                     <input ref={importRef} type="file" accept=".json" onChange={(e) => void importRules(e)} style={{ display: "none" }} />
                   </label>
+                </div>
+              </div>
+
+              {/* Profile bar */}
+              <div className="profile-bar">
+                <span className="profile-bar-label">Hồ sơ</span>
+                <select
+                  className="profile-select"
+                  value={viewProfileId ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    void switchViewProfile(val === "" ? null : Number(val))
+                  }}
+                >
+                  {profiles.length === 0
+                    ? <option value="">— chưa có hồ sơ —</option>
+                    : profiles.map((p) => (
+                        <option key={p.id} value={p.id}>{p.name}</option>
+                      ))
+                  }
+                </select>
+
+                {viewProfileId != null && settings?.activeProfileId !== viewProfileId && (
+                  <button
+                    className="btn btn-primary"
+                    style={{ fontSize: 11, padding: "5px 12px" }}
+                    onClick={() => void useThisProfile()}
+                  >
+                    Sử dụng profile này
+                  </button>
+                )}
+                {viewProfileId != null && settings?.activeProfileId === viewProfileId && (
+                  <span className="profile-active-badge">đang dùng</span>
+                )}
+
+                {viewProfileId != null && (
+                  <button
+                    className="btn btn-danger"
+                    style={{ fontSize: 11, padding: "5px 10px" }}
+                    onClick={() => void deleteCurrentProfile()}
+                  >
+                    Xóa hồ sơ
+                  </button>
+                )}
+
+                <div className="profile-create-row">
+                  <input
+                    className="profile-create-input"
+                    value={newProfileName}
+                    onChange={(e) => setNewProfileName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && void createProfile()}
+                    placeholder="Tên hồ sơ mới…"
+                  />
+                  <button
+                    className="btn"
+                    style={{ fontSize: 11 }}
+                    onClick={() => void createProfile()}
+                    disabled={!newProfileName.trim()}
+                  >
+                    + Tạo
+                  </button>
                 </div>
               </div>
 

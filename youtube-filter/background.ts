@@ -4,16 +4,26 @@ import { settingsRepository } from "~data/repositories/settings.repository"
 import { rulesRepository } from "~data/repositories/rules.repository"
 import { entitiesRepository } from "~data/repositories/entities.repository"
 import { matchLogRepository } from "~data/repositories/match-log.repository"
+import { profilesRepository } from "~data/repositories/profiles.repository"
+import { ruleListsRepository } from "~data/repositories/rule-lists.repository"
 import { db } from "~data/db/app-db"
 import type {
   CacheEntitiesBatchPayload,
   CacheEntityPayload,
+  CreateProfilePayload,
+  CreateRuleListPayload,
   CreateRulePayload,
+  DeleteProfilePayload,
+  DeleteRuleListPayload,
+  GetAllRulesPayload,
+  GetRuleListsPayload,
   GetRulesByTypePayload,
   LogMatchPayload,
   Message,
   MessageResponse,
+  SetActiveProfilePayload,
   ToggleRulePayload,
+  UpdateProfilePayload,
   UpdateRulePayload
 } from "~core/messages"
 import type { Settings } from "~core/types/settings"
@@ -48,11 +58,16 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         )
       }
 
-    case "GET_ALL_RULES":
+    case "GET_ALL_RULES": {
+      const payload = message.payload as GetAllRulesPayload | undefined
+      const profileId = payload && "profileId" in payload
+        ? payload.profileId
+        : (await settingsRepository.getSettings()).activeProfileId
       return {
         success: true,
-        data: await rulesRepository.getAllRules()
+        data: await rulesRepository.getAllRules(profileId)
       }
+    }
 
     case "GET_RULES_BY_TYPE": {
       const payload = message.payload as GetRulesByTypePayload
@@ -64,37 +79,48 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
 
     case "CREATE_RULE": {
       const payload = message.payload as CreateRulePayload
-      await rulesRepository.createRule(payload)
+      const settings = await settingsRepository.getSettings()
+      const profileId = payload.profileId !== undefined ? payload.profileId : settings.activeProfileId
+      await rulesRepository.createRule({ ...payload, profileId })
       return {
         success: true,
-        data: await rulesRepository.getAllRules()
+        data: await rulesRepository.getAllRules(profileId)
       }
     }
 
     case "UPDATE_RULE": {
       const payload = message.payload as UpdateRulePayload
       await rulesRepository.updateRule(payload.id, payload.patch)
+      const profileId = payload.profileId !== undefined
+        ? payload.profileId
+        : (await settingsRepository.getSettings()).activeProfileId
       return {
         success: true,
-        data: await rulesRepository.getAllRules()
+        data: await rulesRepository.getAllRules(profileId)
       }
     }
 
     case "SET_RULE_ENABLED": {
       const payload = message.payload as ToggleRulePayload
       await rulesRepository.setRuleEnabled(payload.id, payload.enabled)
+      const profileId = payload.profileId !== undefined
+        ? payload.profileId
+        : (await settingsRepository.getSettings()).activeProfileId
       return {
         success: true,
-        data: await rulesRepository.getAllRules()
+        data: await rulesRepository.getAllRules(profileId)
       }
     }
 
     case "DELETE_RULE": {
-      const id = message.payload as number
-      await rulesRepository.deleteRule(id)
+      const payload = message.payload as { id: number; profileId?: number | null }
+      await rulesRepository.deleteRule(payload.id)
+      const profileId = payload.profileId !== undefined
+        ? payload.profileId
+        : (await settingsRepository.getSettings()).activeProfileId
       return {
         success: true,
-        data: await rulesRepository.getAllRules()
+        data: await rulesRepository.getAllRules(profileId)
       }
     }
 
@@ -181,6 +207,62 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
         success: true,
         data: "pong"
       }
+
+    case "GET_PROFILES":
+      return { success: true, data: await profilesRepository.getAll() }
+
+    case "CREATE_PROFILE": {
+      const payload = message.payload as CreateProfilePayload
+      const newId = await profilesRepository.create(payload.name)
+      await ruleListsRepository.ensureForProfile(newId)
+      return { success: true, data: await profilesRepository.getAll() }
+    }
+
+    case "UPDATE_PROFILE": {
+      const payload = message.payload as UpdateProfilePayload
+      await profilesRepository.update(payload.id, payload.name)
+      return { success: true, data: await profilesRepository.getAll() }
+    }
+
+    case "DELETE_PROFILE": {
+      const payload = message.payload as DeleteProfilePayload
+      const settings = await settingsRepository.getSettings()
+      await profilesRepository.delete(payload.id)
+      if (settings.activeProfileId === payload.id) {
+        const remaining = await profilesRepository.getAll()
+        const nextId = remaining[0]?.id ?? null
+        await settingsRepository.updateSettings({ activeProfileId: nextId })
+      }
+      return { success: true, data: await profilesRepository.getAll() }
+    }
+
+    case "SET_ACTIVE_PROFILE": {
+      const payload = message.payload as SetActiveProfilePayload
+      const updated = await settingsRepository.updateSettings({ activeProfileId: payload.profileId })
+      return { success: true, data: updated }
+    }
+
+    case "GET_RULE_LISTS": {
+      const payload = message.payload as GetRuleListsPayload
+      return { success: true, data: await ruleListsRepository.getByProfile(payload.profileId) }
+    }
+
+    case "CREATE_RULE_LIST": {
+      const payload = message.payload as CreateRuleListPayload
+      await ruleListsRepository.create(payload.profileId, payload.name)
+      return { success: true, data: await ruleListsRepository.getByProfile(payload.profileId) }
+    }
+
+    case "DELETE_RULE_LIST": {
+      const payload = message.payload as DeleteRuleListPayload
+      const list = await db.ruleLists.get(payload.id)
+      await ruleListsRepository.delete(payload.id)
+      const profileId = list?.profileId
+      if (profileId != null) {
+        return { success: true, data: await ruleListsRepository.getByProfile(profileId) }
+      }
+      return { success: true, data: [] }
+    }
 
     default:
       return {

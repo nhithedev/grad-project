@@ -2,8 +2,10 @@ import Dexie, { type Table } from "dexie"
 import type { Rule, RuleList } from "~core/types/rule"
 import type { EntityCache } from "~core/types/entity"
 import type { MatchLog } from "~core/types/match-log"
+import type { Profile } from "~core/types/profile"
 
 export class AppDB extends Dexie {
+  profiles!: Table<Profile, number>
   ruleLists!: Table<RuleList, number>
   rules!: Table<Rule, number>
   entitiesCache!: Table<EntityCache, number>
@@ -27,6 +29,15 @@ export class AppDB extends Dexie {
 
     this.version(3).stores({
       ruleLists: "++id, enabled, createdAt, updatedAt",
+      rules:
+        "++id, listId, type, targetNormalized, [type+targetNormalized], enabled, createdAt, updatedAt",
+      entitiesCache: "++id, videoId, channelId, lastSeenAt",
+      matchLogs: "++id, videoId, ruleId, action, matchedAt"
+    })
+
+    this.version(4).stores({
+      profiles: "++id, name, createdAt, updatedAt",
+      ruleLists: "++id, profileId, enabled, createdAt, updatedAt",
       rules:
         "++id, listId, type, targetNormalized, [type+targetNormalized], enabled, createdAt, updatedAt",
       entitiesCache: "++id, videoId, channelId, lastSeenAt",

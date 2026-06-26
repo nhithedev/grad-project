@@ -6,7 +6,8 @@ export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
   defaultAction: "hide",
   debugMode: false,
-  matchScopes: ["home", "search", "watch"]
+  matchScopes: ["home", "search", "watch"],
+  activeProfileId: null
 }
 
 export async function getSettingsFromStorage(): Promise<Settings> {

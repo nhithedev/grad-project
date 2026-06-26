@@ -3,6 +3,7 @@ export type RuleAction = "hide" | "flag"
 
 export interface RuleList {
   id?: number
+  profileId?: number
   name: string
   description?: string
   enabled: boolean

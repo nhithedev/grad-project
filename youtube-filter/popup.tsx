@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import type { Rule } from "~core/types/rule"
 import type { Settings } from "~core/types/settings"
-import type { Message, MessageResponse, CreateRulePayload } from "~core/messages"
+import type { Profile } from "~core/types/profile"
+import type { Message, MessageResponse, CreateRulePayload, SetActiveProfilePayload } from "~core/messages"
 
 // ─── messaging ────────────────────────────────────────────────────────────────
 
@@ -103,6 +104,32 @@ const css = `
   }
   .icon-btn:hover { background: #ebebeb; color: #333333; border-color: #d0d0d0; }
   .icon-btn.debug-on { background: #eff6ff; color: #3b82f6; border-color: #bfdbfe; }
+
+  /* profile selector */
+  .profile-bar {
+    padding: 7px 16px;
+    border-bottom: 1px solid #f0f0f0;
+    display: flex; align-items: center; gap: 8px;
+    background: #fafafa;
+  }
+  .profile-bar-label {
+    font-size: 10px; color: #bbbbbb; font-weight: 600;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    flex-shrink: 0;
+  }
+  .profile-select {
+    flex: 1;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px; font-weight: 500;
+    background: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 4px 8px;
+    color: #333333;
+    cursor: pointer;
+    outline: none;
+  }
+  .profile-select:focus { border-color: #ff3d3d88; }
 
   /* status bar */
   .status-bar {
@@ -264,6 +291,7 @@ function typeBadge(type: string) {
 export default function Popup() {
   const [settings, setSettings] = useState<Settings | null>(null)
   const [rules, setRules] = useState<Rule[]>([])
+  const [profiles, setProfiles] = useState<Profile[]>([])
   const [input, setInput] = useState("")
   const [newAction, setNewAction] = useState<"hide" | "flag">("hide")
   const [loading, setLoading] = useState(true)
@@ -275,16 +303,27 @@ export default function Popup() {
 
   async function load() {
     try {
-      const [s, r] = await Promise.all([
+      const [s, r, p] = await Promise.all([
         send<Settings>({ type: "GET_SETTINGS" }),
         send<Rule[]>({ type: "GET_ALL_RULES" }),
+        send<Profile[]>({ type: "GET_PROFILES" }),
       ])
       setSettings(s)
       setRules(r)
       setNewAction(s.defaultAction ?? "hide")
+      setProfiles(p)
     } finally {
       setLoading(false)
     }
+  }
+
+  async function changeProfile(profileId: number | null) {
+    const payload: SetActiveProfilePayload = { profileId }
+    const updatedSettings = await send<Settings>({ type: "SET_ACTIVE_PROFILE", payload })
+    setSettings(updatedSettings)
+    const updatedRules = await send<Rule[]>({ type: "GET_ALL_RULES" })
+    setRules(updatedRules)
+    await refreshTabs()
   }
 
   async function toggleEnabled() {
@@ -372,6 +411,26 @@ export default function Popup() {
             </div>
           </div>
         </div>
+
+        {/* Profile selector */}
+        {profiles.length > 0 && (
+          <div className="profile-bar">
+            <span className="profile-bar-label">Hồ sơ</span>
+            <select
+              className="profile-select"
+              value={settings?.activeProfileId ?? ""}
+              onChange={(e) => {
+                const val = e.target.value
+                void changeProfile(val === "" ? null : Number(val))
+              }}
+            >
+              <option value="">— không chọn —</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Status */}
         <div className="status-bar">
