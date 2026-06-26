@@ -29,6 +29,7 @@ export type MessageType =
   | "GET_RULE_LISTS"
   | "CREATE_RULE_LIST"
   | "DELETE_RULE_LIST"
+  | "GET_ENTITY_BY_VIDEO_ID"
 
 export interface Message<T = unknown> {
   type: MessageType
@@ -41,8 +42,12 @@ export interface MessageResponse<T = unknown> {
   error?: string
 }
 
+export interface GetEntityByVideoIdPayload {
+  videoId: string
+}
+
 export interface CreateRulePayload {
-  type: "keyword" | "channelName" | "channelId" | "videoId"
+  type: "keyword" | "channelName" | "channelId" | "videoId" | "regex"
   targetRaw: string
   action?: "hide" | "flag"
   note?: string
@@ -62,7 +67,7 @@ export interface ToggleRulePayload {
 }
 
 export interface GetRulesByTypePayload {
-  type: "keyword" | "channelName" | "channelId" | "videoId"
+  type: "keyword" | "channelName" | "channelId" | "videoId" | "regex"
 }
 
 export interface CacheEntityPayload {

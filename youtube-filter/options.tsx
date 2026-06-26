@@ -7,12 +7,14 @@ import type {
   CreateRulePayload,
   DeleteProfilePayload,
   GetAllRulesPayload,
+  GetEntityByVideoIdPayload,
   Message,
   MessageResponse,
   SetActiveProfilePayload,
   ToggleRulePayload,
   UpdateRulePayload,
 } from "~core/messages"
+import type { EntityCache } from "~core/types/entity"
 import { parseYouTubeUrl } from "~data/utils/normalize"
 
 // ─── messaging ────────────────────────────────────────────────────────────────
@@ -39,14 +41,15 @@ async function refreshTabs() {
 // ─── constants ────────────────────────────────────────────────────────────────
 
 // UI-level input types (what user sees in the add form)
-type FormType = "keyword" | "channelName" | "channelLink" | "videoLink"
-const FORM_TYPES: FormType[] = ["keyword", "channelName", "channelLink", "videoLink"]
+type FormType = "keyword" | "channelName" | "channelLink" | "videoLink" | "regex"
+const FORM_TYPES: FormType[] = ["keyword", "channelName", "channelLink", "videoLink", "regex"]
 
 const FORM_LABEL: Record<FormType, string> = {
   keyword: "Từ khóa",
   channelName: "Tên kênh",
   channelLink: "Link kênh",
   videoLink: "Link video",
+  regex: "Regex",
 }
 
 const FORM_PLACEHOLDER: Record<FormType, string> = {
@@ -54,10 +57,11 @@ const FORM_PLACEHOLDER: Record<FormType, string> = {
   channelName: "ví dụ: MrBeast",
   channelLink: "ví dụ: youtube.com/@MrBeast",
   videoLink: "ví dụ: youtube.com/watch?v=dQw4w9WgXcQ",
+  regex: "ví dụ: gaming|game|fps",
 }
 
 // Actual stored rule types (for sidebar filter)
-const RULE_TYPES: RuleType[] = ["keyword", "channelName", "channelId", "videoId"]
+const RULE_TYPES: RuleType[] = ["keyword", "channelName", "channelId", "videoId", "regex"]
 type FilterType = "all" | RuleType
 
 const FILTER_LABEL: Record<RuleType, string> = {
@@ -65,6 +69,7 @@ const FILTER_LABEL: Record<RuleType, string> = {
   channelName: "Tên kênh",
   channelId: "Link kênh",
   videoId: "Link video",
+  regex: "Regex",
 }
 
 // ─── styles ───────────────────────────────────────────────────────────────────
@@ -446,6 +451,31 @@ const css = `
   .profile-create-input::placeholder { color: #cccccc; }
   .profile-create-input:focus { border-color: #ff3d3d88; }
 
+  /* sample video lookup */
+  .sample-section {
+    padding: 14px 24px;
+    border-bottom: 1px solid #ebebeb;
+    background: #fffdf5;
+    display: grid;
+    gap: 10px;
+  }
+  .sample-header {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+    text-transform: uppercase; color: #d97706;
+  }
+  .sample-row { display: flex; gap: 8px; align-items: center; }
+  .sample-result {
+    padding: 10px 12px;
+    background: #ffffff; border: 1px solid #e0e0e0;
+    border-radius: 8px; display: grid; gap: 6px;
+  }
+  .sample-meta { font-size: 12px; color: #555555; font-family: 'DM Mono', monospace; }
+  .sample-meta strong { color: #111111; }
+  .sample-hint { font-size: 11px; color: #aaaaaa; font-family: 'DM Mono', monospace; }
+  .sample-not-found {
+    font-size: 12px; color: #aaaaaa; font-style: italic;
+  }
+
   @keyframes slideIn {
     from { opacity: 0; transform: translateY(-6px); }
     to   { opacity: 1; transform: none; }
@@ -512,6 +542,13 @@ export default function OptionsPage() {
   const [profiles, setProfiles]         = useState<Profile[]>([])
   const [viewProfileId, setViewProfileId] = useState<number | null>(null)
   const [newProfileName, setNewProfileName] = useState("")
+
+  // UC04: create rule from sample video
+  const [sampleUrl, setSampleUrl]               = useState("")
+  const [sampleEntity, setSampleEntity]         = useState<EntityCache | null>(null)
+  const [sampleNotFound, setSampleNotFound]     = useState(false)
+  const [sampleRuleChoice, setSampleRuleChoice] = useState<"keyword_title" | "channelName" | "channelId" | "videoId">("keyword_title")
+  const [sampleAction, setSampleAction]         = useState<RuleAction>("hide")
 
   useEffect(() => {
     void load()
@@ -586,6 +623,15 @@ export default function OptionsPage() {
       }
       ruleType = parsed.type
       ruleTarget = parsed.value
+    } else if (newFormType === "regex") {
+      try {
+        new RegExp(target)
+      } catch {
+        setFormError("Regex không hợp lệ.")
+        return
+      }
+      ruleType = "regex"
+      ruleTarget = target
     } else {
       ruleType = newFormType as RuleType
       ruleTarget = target
@@ -705,6 +751,59 @@ export default function OptionsPage() {
     const payload: SetActiveProfilePayload = { profileId: viewProfileId }
     const updatedSettings = await send<Settings>({ type: "SET_ACTIVE_PROFILE", payload })
     setSettings(updatedSettings)
+    await refreshTabs()
+  }
+
+  // ── UC04: sample video lookup ─────────────────────────────────────────────
+
+  async function lookupSampleVideo() {
+    const url = sampleUrl.trim()
+    if (!url) return
+    setSampleEntity(null)
+    setSampleNotFound(false)
+    const parsed = parseYouTubeUrl(url)
+    if (!parsed || parsed.type !== "videoId") {
+      setSampleNotFound(true)
+      return
+    }
+    const payload: GetEntityByVideoIdPayload = { videoId: parsed.value }
+    const entity = await send<EntityCache | null>({ type: "GET_ENTITY_BY_VIDEO_ID", payload })
+    if (entity) {
+      setSampleEntity(entity)
+    } else {
+      setSampleNotFound(true)
+    }
+  }
+
+  async function createRuleFromSample() {
+    if (!sampleEntity) return
+    let ruleType: RuleType
+    let ruleTarget: string
+    switch (sampleRuleChoice) {
+      case "keyword_title":
+        ruleType = "keyword"
+        ruleTarget = sampleEntity.title ?? ""
+        break
+      case "channelName":
+        ruleType = "channelName"
+        ruleTarget = sampleEntity.channelName ?? ""
+        break
+      case "channelId":
+        ruleType = "channelId"
+        ruleTarget = sampleEntity.channelId ?? ""
+        break
+      case "videoId":
+        ruleType = "videoId"
+        ruleTarget = sampleEntity.videoId
+        break
+    }
+    if (!ruleTarget) return
+    const payload: CreateRulePayload = { type: ruleType, targetRaw: ruleTarget, action: sampleAction, profileId: viewProfileId }
+    const updated = await send<Rule[]>({ type: "CREATE_RULE", payload })
+    setRules(updated)
+    setSampleUrl("")
+    setSampleEntity(null)
+    setSampleNotFound(false)
     await refreshTabs()
   }
 
@@ -924,6 +1023,65 @@ export default function OptionsPage() {
                 </div>
               </div>
 
+              {/* UC04: Create rule from sample video */}
+              <div className="sample-section">
+                <div className="sample-header">Tạo rule từ video mẫu</div>
+                <div className="sample-row">
+                  <input
+                    className="input grow"
+                    value={sampleUrl}
+                    onChange={(e) => { setSampleUrl(e.target.value); setSampleEntity(null); setSampleNotFound(false) }}
+                    onKeyDown={(e) => e.key === "Enter" && void lookupSampleVideo()}
+                    placeholder="youtube.com/watch?v=…"
+                  />
+                  <button className="btn" onClick={() => void lookupSampleVideo()}>
+                    Tra cứu
+                  </button>
+                </div>
+
+                {sampleNotFound && (
+                  <div className="sample-not-found">
+                    Video chưa được xem trong phiên này — mở video trên YouTube trước.
+                  </div>
+                )}
+
+                {sampleEntity && (
+                  <div className="sample-result">
+                    <div className="sample-meta">
+                      <strong>Title:</strong> {sampleEntity.title || "—"}
+                    </div>
+                    <div className="sample-meta">
+                      <strong>Kênh:</strong> {sampleEntity.channelName || "—"}
+                    </div>
+                    <div className="sample-row" style={{ flexWrap: "wrap", gap: 8 }}>
+                      <select
+                        className="select"
+                        value={sampleRuleChoice}
+                        onChange={(e) => setSampleRuleChoice(e.target.value as typeof sampleRuleChoice)}
+                      >
+                        {sampleEntity.title && <option value="keyword_title">Từ khóa từ title</option>}
+                        {sampleEntity.channelName && <option value="channelName">Tên kênh</option>}
+                        {sampleEntity.channelId && <option value="channelId">ID kênh</option>}
+                        <option value="videoId">Video ID</option>
+                      </select>
+                      <div className="action-seg">
+                        <button
+                          className={`seg-btn ${sampleAction === "hide" ? "sel-hide" : ""}`}
+                          onClick={() => setSampleAction("hide")}
+                        >Ẩn</button>
+                        <button
+                          className={`seg-btn ${sampleAction === "flag" ? "sel-flag" : ""}`}
+                          onClick={() => setSampleAction("flag")}
+                        >⚑</button>
+                      </div>
+                      <button className="btn btn-primary" style={{ fontSize: 11, padding: "6px 12px" }} onClick={() => void createRuleFromSample()}>
+                        Tạo rule
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Add form */}
               <div className="add-form">
                 <div className="form-row">
@@ -980,6 +1138,9 @@ export default function OptionsPage() {
                 )}
                 {(newFormType === "videoLink") && !formError && (
                   <div className="url-hint">Hỗ trợ: youtube.com/watch?v=… · youtu.be/… · /shorts/…</div>
+                )}
+                {(newFormType === "regex") && !formError && (
+                  <div className="url-hint">Regex khớp với title và tên kênh, không phân biệt hoa/thường.</div>
                 )}
               </div>
 

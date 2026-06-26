@@ -20,6 +20,10 @@ export class EntitiesRepository {
     })
   }
 
+  async getByVideoId(videoId: string) {
+    return db.entitiesCache.where("videoId").equals(videoId).first()
+  }
+
   async getAll() {
     return db.entitiesCache.orderBy("lastSeenAt").reverse().toArray()
   }

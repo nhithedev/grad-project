@@ -1,4 +1,4 @@
-export type RuleType = "keyword" | "channelName" | "channelId" | "videoId"
+export type RuleType = "keyword" | "channelName" | "channelId" | "videoId" | "regex"
 export type RuleAction = "hide" | "flag"
 
 export interface RuleList {

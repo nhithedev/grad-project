@@ -16,6 +16,7 @@ import type {
   DeleteProfilePayload,
   DeleteRuleListPayload,
   GetAllRulesPayload,
+  GetEntityByVideoIdPayload,
   GetRuleListsPayload,
   GetRulesByTypePayload,
   LogMatchPayload,
@@ -251,6 +252,12 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
       const payload = message.payload as CreateRuleListPayload
       await ruleListsRepository.create(payload.profileId, payload.name)
       return { success: true, data: await ruleListsRepository.getByProfile(payload.profileId) }
+    }
+
+    case "GET_ENTITY_BY_VIDEO_ID": {
+      const { videoId } = message.payload as GetEntityByVideoIdPayload
+      const entity = await entitiesRepository.getByVideoId(videoId)
+      return { success: true, data: entity ?? null }
     }
 
     case "DELETE_RULE_LIST": {

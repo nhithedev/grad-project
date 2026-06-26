@@ -17,7 +17,7 @@ export interface EngineInput {
 }
 
 // Priority order: higher index = evaluated first
-const TYPE_PRIORITY = ["keyword", "channelName", "channelId", "videoId"] as const
+const TYPE_PRIORITY = ["keyword", "regex", "channelName", "channelId", "videoId"] as const
 
 function matchesRule(rule: Rule, candidate: VideoCandidate): boolean {
   const target = rule.targetNormalized
@@ -36,6 +36,14 @@ function matchesRule(rule: Rule, candidate: VideoCandidate): boolean {
         normalizeText(candidate.title).includes(target) ||
         (candidate.channelName ? normalizeText(candidate.channelName).includes(target) : false)
       )
+    case "regex": {
+      try {
+        const re = new RegExp(rule.targetRaw, "i")
+        return re.test(candidate.title ?? "") || re.test(candidate.channelName ?? "")
+      } catch {
+        return false
+      }
+    }
     default:
       return false
   }
