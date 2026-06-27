@@ -5,6 +5,7 @@ import type { Rule } from "~core/types/rule"
 import type { Settings } from "~core/types/settings"
 import type { EntityCache } from "~core/types/entity"
 import { evaluate } from "~core/rule-engine"
+import defaultCoverUrl from "url:~/assets/yt-filter-cover.png"
 
 export const config: PlasmoCSConfig = {
   matches: ["https://www.youtube.com/*"]
@@ -63,6 +64,13 @@ function injectStyles() {
       border-radius: 2px;
       padding: 0 1px;
     }
+    .yt-filter-thumb-wrap { position: relative !important; }
+    .yt-filter-thumb-overlay {
+      position: absolute; inset: 0; z-index: 10;
+      background-size: cover; background-position: center;
+      background-repeat: no-repeat; border-radius: inherit;
+      pointer-events: none;
+    }
 
     /* Placeholder hiển thị thay cho video bị hide khi debugMode */
     .yt-filter-hide-placeholder {
@@ -105,6 +113,8 @@ function clearPreviousMarks(el: Element) {
   el.classList.remove("yt-filter-flagged", "yt-filter-hidden")
   el.removeAttribute(FILTER_ATTR)
   el.querySelector(".yt-filter-reason")?.remove()
+  el.querySelectorAll(".yt-filter-thumb-overlay").forEach((o) => o.remove())
+  el.querySelectorAll(".yt-filter-thumb-wrap").forEach((w) => w.classList.remove("yt-filter-thumb-wrap"))
   el.querySelectorAll("mark.yt-filter-highlight").forEach((mark) => {
     const parent = mark.parentNode
     if (!parent) return
@@ -161,27 +171,47 @@ function applyTextHighlight(containerEl: Element, rule: { type: string; targetRa
   const titleEl = containerEl.querySelector<HTMLElement>(
     "a#video-title, a#video-title-link, #video-title, a.ytLockupMetadataViewModelTitle"
   )
-  const chEl = containerEl.querySelector<HTMLElement>(
-    "#channel-name a, ytd-channel-name a, a.ytAttributedStringLink"
-  )
+  // querySelectorAll để bắt collab channels (nhiều anchor); kết hợp new + legacy layout
+  let chEls = Array.from(containerEl.querySelectorAll<HTMLElement>(
+    "a.ytAttributedStringLink[href^='/@'], a.ytAttributedStringLink[href^='/channel/'], #channel-name a, ytd-channel-name a"
+  ))
+  // Fallback: collab channels dùng text node thuần (không có <a>) — lấy span chứa text
+  if (chEls.length === 0) {
+    const metaText = containerEl.querySelector<HTMLElement>(".ytContentMetadataViewModelMetadataText")
+    if (metaText) chEls = [metaText]
+  }
   const descEl = containerEl.querySelector<HTMLElement>("yt-formatted-string.metadata-snippet-text")
 
   if (rule.type === "keyword") {
     if (titleEl) highlightTextInElement(titleEl, rule.targetRaw)
-    if (chEl) highlightTextInElement(chEl, rule.targetRaw)
+    chEls.forEach((el) => highlightTextInElement(el, rule.targetRaw))
     if (descEl) highlightTextInElement(descEl, rule.targetRaw)
   } else if (rule.type === "channelName") {
-    if (chEl) highlightTextInElement(chEl, rule.targetRaw)
+    chEls.forEach((el) => highlightTextInElement(el, rule.targetRaw))
   } else if (rule.type === "regex") {
     try {
       const re = new RegExp(rule.targetRaw, "gi")
       if (titleEl) highlightRegexInElement(titleEl, re)
       re.lastIndex = 0
-      if (chEl) highlightRegexInElement(chEl, re)
-      re.lastIndex = 0
+      chEls.forEach((el) => { highlightRegexInElement(el, re); re.lastIndex = 0 })
       if (descEl) highlightRegexInElement(descEl, re)
     } catch {}
   }
+}
+
+function applyThumbOverlay(containerEl: Element, customUrl?: string) {
+  const thumbEl =
+    containerEl.querySelector("yt-thumbnail-view-model") ||
+    containerEl.querySelector("ytd-thumbnail") ||
+    containerEl.querySelector("a#thumbnail")
+  if (!thumbEl || thumbEl.querySelector(".yt-filter-thumb-overlay")) return
+
+  const imageUrl = customUrl?.trim() || defaultCoverUrl
+  thumbEl.classList.add("yt-filter-thumb-wrap")
+  const overlay = document.createElement("div")
+  overlay.className = "yt-filter-thumb-overlay"
+  overlay.style.backgroundImage = `url("${imageUrl}")`
+  thumbEl.appendChild(overlay)
 }
 
 function removePlaceholderFor(containerEl: Element) {
@@ -297,6 +327,7 @@ async function applyHighlights() {
       flagCount++
       const winnerForHighlight = rules.find((r) => r.id === decision.matchedRuleIds[0])
       if (winnerForHighlight) applyTextHighlight(containerEl, winnerForHighlight)
+      applyThumbOverlay(containerEl, settings.overlayImageUrl)
     } else if (decision.action === "hide") {
       containerEl.classList.add("yt-filter-hidden")
       containerEl.setAttribute(FILTER_ATTR, "hidden")

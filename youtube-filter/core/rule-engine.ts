@@ -19,34 +19,33 @@ export interface EngineInput {
 // Priority order: higher index = evaluated first
 const TYPE_PRIORITY = ["keyword", "regex", "channelName", "channelId", "videoId"] as const
 
-function matchesRule(rule: Rule, candidate: VideoCandidate): boolean {
+function matchesRule(rule: Rule, candidate: VideoCandidate): string | null {
   const target = rule.targetNormalized
 
   switch (rule.type) {
     case "videoId":
-      return normalizeText(candidate.videoId) === target
+      return normalizeText(candidate.videoId) === target ? "videoId" : null
     case "channelId":
-      return candidate.channelId ? normalizeText(candidate.channelId) === target : false
+      return candidate.channelId && normalizeText(candidate.channelId) === target ? "channelId" : null
     case "channelName":
-      return candidate.channelName
-        ? normalizeText(candidate.channelName).includes(target)
-        : false
-    case "keyword":
-      return (
-        normalizeText(candidate.title).includes(target) ||
-        (candidate.channelName ? normalizeText(candidate.channelName).includes(target) : false) ||
-        (candidate.description ? normalizeText(candidate.description).includes(target) : false)
-      )
+      return candidate.channelName && normalizeText(candidate.channelName).includes(target) ? "channelName" : null
+    case "keyword": {
+      if (normalizeText(candidate.title).includes(target)) return "title"
+      if (candidate.channelName && normalizeText(candidate.channelName).includes(target)) return "channelName"
+      if (candidate.description && normalizeText(candidate.description).includes(target)) return "description"
+      return null
+    }
     case "regex": {
       try {
         const re = new RegExp(rule.targetRaw, "i")
-        return re.test(candidate.title ?? "") || re.test(candidate.channelName ?? "") || re.test(candidate.description ?? "")
-      } catch {
-        return false
-      }
+        if (re.test(candidate.title ?? "")) return "title"
+        if (re.test(candidate.channelName ?? "")) return "channelName"
+        if (re.test(candidate.description ?? "")) return "description"
+      } catch {}
+      return null
     }
     default:
-      return false
+      return null
   }
 }
 
@@ -61,18 +60,20 @@ export function evaluate(input: EngineInput): Decision {
 
   // Evaluate by priority: videoId first, keyword last
   for (const ruleType of [...TYPE_PRIORITY].reverse()) {
-    const matching = enabledRules.filter((r) => r.type === ruleType && matchesRule(r, candidate))
-    if (matching.length === 0) continue
+    const matched = enabledRules
+      .map((r) => ({ rule: r, field: matchesRule(r, candidate) }))
+      .filter((x) => x.rule.type === ruleType && x.field !== null)
+    if (matched.length === 0) continue
 
-    const hideRule = matching.find((r) => r.action === "hide")
-    const winner = hideRule ?? matching[0]
-    const action = winner.action as "hide" | "flag"
-    const reason = `${ruleType}:${winner.targetRaw}`
+    const hideMatch = matched.find((x) => x.rule.action === "hide")
+    const winner = hideMatch ?? matched[0]
+    const action = winner.rule.action as "hide" | "flag"
+    const reason = `${ruleType}:${winner.rule.targetRaw} (${winner.field})`
 
     return {
       action,
       reason,
-      matchedRuleIds: matching.map((r) => r.id),
+      matchedRuleIds: matched.map((x) => x.rule.id),
     }
   }
 

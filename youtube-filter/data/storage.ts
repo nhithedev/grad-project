@@ -7,7 +7,8 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultAction: "hide",
   debugMode: false,
   matchScopes: ["home", "search", "watch"],
-  activeProfileId: null
+  activeProfileId: null,
+  overlayImageUrl: "",
 }
 
 export async function getSettingsFromStorage(): Promise<Settings> {

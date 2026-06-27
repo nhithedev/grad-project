@@ -500,6 +500,16 @@ export default function OptionsPage() {
               </div>
             </div>
 
+            <div className="setting-row setting-row-static" style={{ flexDirection: "column", alignItems: "flex-start", gap: 4 }}>
+              <span className="setting-label">Ảnh overlay (flag)</span>
+              <input
+                className="input"
+                defaultValue={settings?.overlayImageUrl ?? ""}
+                placeholder="để trống = dùng ảnh mặc định"
+                onBlur={(e) => void saveSettings({ overlayImageUrl: e.target.value.trim() })}
+              />
+            </div>
+
             <div className="sidebar-debug">
               <button
                 className="btn btn-ghost btn-debug"
@@ -516,7 +526,7 @@ export default function OptionsPage() {
 
           {activeTab === "rules" ? (
             <>
-              {/* Topbar */}
+              {/* Topbar with profile controls */}
               <div className="topbar">
                 <div>
                   <div className="topbar-title">
@@ -524,341 +534,347 @@ export default function OptionsPage() {
                   </div>
                   <div className="topbar-sub">{visible.length} rules</div>
                 </div>
-                <div className="topbar-actions" />
-              </div>
-
-              {/* Profile bar */}
-              <div className="profile-bar">
-                <span className="profile-bar-label">Hồ sơ</span>
-                <select
-                  className="profile-select"
-                  value={viewProfileId ?? ""}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    void switchViewProfile(val === "" ? null : Number(val))
-                  }}
-                >
-                  {profiles.length === 0
-                    ? <option value="">— chưa có hồ sơ —</option>
-                    : profiles.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
-                      ))
-                  }
-                </select>
-
-                {viewProfileId != null && settings?.activeProfileId === viewProfileId && (
-                  <span className="profile-active-badge">đang dùng</span>
-                )}
-                {viewProfileId != null && settings?.activeProfileId !== viewProfileId && (
-                  <>
-                    <span className="profile-applied-label">
-                      áp dụng: {profiles.find((p) => p.id === settings?.activeProfileId)?.name ?? "—"}
-                    </span>
-                    <button
-                      className="btn btn-primary btn-sm-wide"
-                      onClick={() => void useThisProfile()}
-                    >
-                      Dùng hồ sơ này
-                    </button>
-                  </>
-                )}
-
-                {viewProfileId != null && profiles.length > 1 && (
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => void deleteCurrentProfile()}
+                <div className="topbar-profile">
+                  <span className="profile-bar-label">Hồ sơ</span>
+                  <select
+                    className="profile-select"
+                    value={viewProfileId ?? ""}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      void switchViewProfile(val === "" ? null : Number(val))
+                    }}
                   >
-                    Xóa hồ sơ
-                  </button>
-                )}
+                    {profiles.length === 0
+                      ? <option value="">— chưa có hồ sơ —</option>
+                      : profiles.map((p) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))
+                    }
+                  </select>
 
-                <div className="profile-create-row">
-                  <input
-                    className="profile-create-input"
-                    value={newProfileName}
-                    onChange={(e) => setNewProfileName(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && void createProfile()}
-                    placeholder="Tên hồ sơ mới…"
-                  />
-                  <button
-                    className="btn btn-sm"
-                    onClick={() => void createProfile()}
-                    disabled={!newProfileName.trim()}
-                  >
-                    + Tạo
-                  </button>
-                </div>
-              </div>
-
-              {/* UC04: Create rule from sample video */}
-              <div className="sample-section">
-                <div className="sample-header">Tạo rule từ video mẫu</div>
-                <div className="sample-row">
-                  <input
-                    className="input grow"
-                    value={sampleUrl}
-                    onChange={(e) => { setSampleUrl(e.target.value); setSampleEntity(null); setSampleNotFound(false) }}
-                    onKeyDown={(e) => e.key === "Enter" && void lookupSampleVideo()}
-                    placeholder="youtube.com/watch?v=…"
-                  />
-                  <button className="btn" onClick={() => void lookupSampleVideo()}>
-                    Tra cứu
-                  </button>
-                </div>
-
-                {sampleNotFound && (
-                  <div className="sample-not-found">
-                    Video chưa được xem trong phiên này — mở video trên YouTube trước.
-                  </div>
-                )}
-
-                {sampleEntity && (
-                  <div className="sample-result">
-                    <div className="sample-meta">
-                      <strong>Title:</strong> {sampleEntity.title || "—"}
-                    </div>
-                    <div className="sample-meta">
-                      <strong>Kênh:</strong> {sampleEntity.channelName || "—"}
-                    </div>
-                    <div className="sample-row sample-row-wrap">
-                      <select
-                        className="select"
-                        value={sampleRuleChoice}
-                        onChange={(e) => setSampleRuleChoice(e.target.value as typeof sampleRuleChoice)}
-                      >
-                        {sampleEntity.title && <option value="keyword_title">Từ khóa từ title</option>}
-                        {sampleEntity.channelName && <option value="channelName">Tên kênh</option>}
-                        {sampleEntity.channelId && <option value="channelId">ID kênh</option>}
-                        <option value="videoId">Video ID</option>
-                      </select>
-                      <div className="action-seg">
-                        <button
-                          className={`seg-btn ${sampleAction === "hide" ? "sel-hide" : ""}`}
-                          onClick={() => setSampleAction("hide")}
-                        >Ẩn</button>
-                        <button
-                          className={`seg-btn ${sampleAction === "flag" ? "sel-flag" : ""}`}
-                          onClick={() => setSampleAction("flag")}
-                        >⚑</button>
-                      </div>
-                      <button className="btn btn-primary btn-sm-wide" onClick={() => void createRuleFromSample()}>
-                        Tạo rule
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* AI Suggestions */}
-              <div className="ai-section">
-                <div className="section-header">
-                  <span className="section-title">Đề xuất AI</span>
-                  {aiSuggestions.length > 0 && (
-                    <span className="badge-count">{aiSuggestions.length}</span>
+                  {viewProfileId != null && settings?.activeProfileId === viewProfileId && (
+                    <span className="profile-active-badge">đang dùng</span>
                   )}
-                  <button
-                    className="btn ai-analyze-btn"
-                    disabled={aiLoading}
-                    onClick={() => void triggerAiSuggest()}
-                  >
-                    {aiLoading ? "Đang phân tích…" : "Phân tích ngay"}
-                  </button>
-                </div>
-                {aiSuggestions.length === 0 ? (
-                  <div className="ai-empty">
-                    Chưa có đề xuất. Nhấn "Phân tích ngay" để AI đề xuất rules dựa trên nhật ký.
+                  {viewProfileId != null && settings?.activeProfileId !== viewProfileId && (
+                    <>
+                      <span className="profile-applied-label">
+                        áp dụng: {profiles.find((p) => p.id === settings?.activeProfileId)?.name ?? "—"}
+                      </span>
+                      <button
+                        className="btn btn-primary btn-sm-wide"
+                        onClick={() => void useThisProfile()}
+                      >
+                        Dùng hồ sơ này
+                      </button>
+                    </>
+                  )}
+
+                  {viewProfileId != null && profiles.length > 1 && (
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => void deleteCurrentProfile()}
+                    >
+                      Xóa hồ sơ
+                    </button>
+                  )}
+
+                  <div className="profile-create-row">
+                    <input
+                      className="profile-create-input"
+                      value={newProfileName}
+                      onChange={(e) => setNewProfileName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && void createProfile()}
+                      placeholder="Tên hồ sơ mới…"
+                    />
+                    <button
+                      className="btn btn-sm"
+                      onClick={() => void createProfile()}
+                      disabled={!newProfileName.trim()}
+                    >
+                      + Tạo
+                    </button>
                   </div>
-                ) : (
-                  aiSuggestions.map((s) => (
-                    <div key={s.id} className="suggestion-item">
-                      <div className="suggestion-rule">
-                        <span className="td-type">{s.type}</span>
-                        {s.targetRaw}
-                        <span className={`action-badge ${s.action}`}>
-                          {s.action === "hide" ? "ẩn" : "⚑"}
-                        </span>
-                      </div>
-                      {s.aiReason && (
-                        <div className="suggestion-reason">{s.aiReason}</div>
-                      )}
-                      <div className="suggestion-actions">
-                        <button
-                          className="btn btn-primary btn-sm"
-                          onClick={() => void resolveAiSuggestion(s.id!, "approved")}
+                </div>
+              </div>
+
+              {/* 60/40 split */}
+              <div className="content-split">
+
+                {/* Left 60%: add form + table + status */}
+                <div className="content-main">
+                  <div className="add-form">
+                    <div className="form-row">
+                      <div className="form-col">
+                        <span className="form-label">Loại</span>
+                        <select
+                          className="select"
+                          value={newFormType}
+                          onChange={(e) => { setNewFormType(e.target.value as FormType); setFormError("") }}
                         >
+                          {FORM_TYPES.map((t) => (
+                            <option key={t} value={t}>{FORM_LABEL[t]}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="form-col form-col-flex">
+                        <span className="form-label">
+                          {newFormType === "channelLink" || newFormType === "videoLink" ? "URL" : "Từ khóa / Tên"}
+                        </span>
+                        <input
+                          className="input grow"
+                          value={newTarget}
+                          onChange={(e) => setNewTarget(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && void createRule()}
+                          placeholder={FORM_PLACEHOLDER[newFormType]}
+                        />
+                      </div>
+
+                      <div className="form-col">
+                        <span className="form-label">Action</span>
+                        <div className="action-seg">
+                          <button
+                            className={`seg-btn ${newAction === "hide" ? "sel-hide" : ""}`}
+                            onClick={() => setNewAction("hide")}
+                          >Ẩn</button>
+                          <button
+                            className={`seg-btn ${newAction === "flag" ? "sel-flag" : ""}`}
+                            onClick={() => setNewAction("flag")}
+                          >⚑</button>
+                        </div>
+                      </div>
+
+                      <div className="form-col form-col-end">
+                        <span className="form-label invisible">x</span>
+                        <button className="btn btn-primary" onClick={() => void createRule()}>
                           Thêm rule
                         </button>
-                        <button
-                          className="btn btn-sm"
-                          onClick={() => void resolveAiSuggestion(s.id!, "dismissed")}
-                        >
-                          Bỏ qua
-                        </button>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-
-              {/* Add form */}
-              <div className="add-form">
-                <div className="form-row">
-                  <div className="form-col">
-                    <span className="form-label">Loại</span>
-                    <select
-                      className="select"
-                      value={newFormType}
-                      onChange={(e) => { setNewFormType(e.target.value as FormType); setFormError("") }}
-                    >
-                      {FORM_TYPES.map((t) => (
-                        <option key={t} value={t}>{FORM_LABEL[t]}</option>
-                      ))}
-                    </select>
+                    {formError && <div className="error-msg">{formError}</div>}
+                    {(newFormType === "channelLink") && !formError && (
+                      <div className="url-hint">Hỗ trợ: youtube.com/@handle · youtube.com/channel/UC…</div>
+                    )}
+                    {(newFormType === "videoLink") && !formError && (
+                      <div className="url-hint">Hỗ trợ: youtube.com/watch?v=… · youtu.be/… · /shorts/…</div>
+                    )}
+                    {(newFormType === "regex") && !formError && (
+                      <div className="url-hint">Regex khớp với title và tên kênh, không phân biệt hoa/thường.</div>
+                    )}
                   </div>
 
-                  <div className="form-col form-col-flex">
-                    <span className="form-label">
-                      {newFormType === "channelLink" || newFormType === "videoLink" ? "URL" : "Từ khóa / Tên"}
-                    </span>
-                    <input
-                      className="input grow"
-                      value={newTarget}
-                      onChange={(e) => setNewTarget(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && void createRule()}
-                      placeholder={FORM_PLACEHOLDER[newFormType]}
-                    />
+                  <div className="table-wrap">
+                    {visible.length === 0 ? (
+                      <div className="empty-table">
+                        <strong>Chưa có rules</strong>
+                        Thêm rule phía trên để bắt đầu
+                      </div>
+                    ) : (
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>Loại</th>
+                            <th>Target</th>
+                            <th>Action</th>
+                            <th>Bật</th>
+                            <th>Cập nhật</th>
+                            <th>Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {visible.map((rule) => (
+                            <tr key={rule.id} className={rule.enabled ? "" : "row-disabled"}>
+
+                              <td className="td-type">{displayType(rule.type)}</td>
+
+                              <td className={`td-target ${editId === rule.id ? "editing" : ""}`}>
+                                {editId === rule.id ? (
+                                  <input
+                                    className="edit-input"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") void saveEdit()
+                                      if (e.key === "Escape") { setEditId(null); setEditValue(""); setFormError("") }
+                                    }}
+                                    autoFocus
+                                  />
+                                ) : (
+                                  <span title={rule.targetRaw}>{rule.targetRaw}</span>
+                                )}
+                              </td>
+
+                              <td>
+                                <div className="action-pill">
+                                  <button
+                                    className={`ap-btn ap-hide ${rule.action === "hide" ? "ap-active" : ""}`}
+                                    onClick={() => void changeAction(rule, "hide")}
+                                    title="Đặt ẩn"
+                                  >ẩn</button>
+                                  <button
+                                    className={`ap-btn ap-flag ${rule.action === "flag" ? "ap-active" : ""}`}
+                                    onClick={() => void changeAction(rule, "flag")}
+                                    title="Đặt flag"
+                                  >⚑</button>
+                                </div>
+                              </td>
+
+                              <td>
+                                <label className={`switch ${rule.enabled ? "green" : ""}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={rule.enabled}
+                                    onChange={() => void toggleEnabled(rule)}
+                                  />
+                                  <span className="switch-track" />
+                                </label>
+                              </td>
+
+                              <td className="td-date">{fmtDate(rule.updatedAt)}</td>
+
+                              <td className="td-actions">
+                                {editId === rule.id ? (
+                                  <>
+                                    <button className="row-btn save" onClick={() => void saveEdit()}>Lưu</button>
+                                    <button className="row-btn" onClick={() => { setEditId(null); setEditValue(""); setFormError("") }}>Hủy</button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button className="row-btn" onClick={() => { setEditId(rule.id!); setEditValue(rule.targetRaw) }}>Sửa</button>
+                                    <button className="row-btn del" onClick={() => void deleteRule(rule.id)}>Xóa</button>
+                                  </>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
 
-                  <div className="form-col">
-                    <span className="form-label">Action</span>
-                    <div className="action-seg">
-                      <button
-                        className={`seg-btn ${newAction === "hide" ? "sel-hide" : ""}`}
-                        onClick={() => setNewAction("hide")}
-                      >Ẩn</button>
-                      <button
-                        className={`seg-btn ${newAction === "flag" ? "sel-flag" : ""}`}
-                        onClick={() => setNewAction("flag")}
-                      >⚑</button>
-                    </div>
-                  </div>
-
-                  <div className="form-col form-col-end">
-                    <span className="form-label invisible">x</span>
-                    <button className="btn btn-primary" onClick={() => void createRule()}>
-                      Thêm rule
-                    </button>
+                  <div className="status-strip">
+                    <div className="ss-item"><span>tổng</span><span className="ss-val">{rules.length}</span></div>
+                    <div className="ss-item"><span>bật</span><span className="ss-val">{rules.filter((r) => r.enabled).length}</span></div>
+                    <div className="ss-item"><span>ẩn</span><span className="ss-val">{rules.filter((r) => r.action === "hide").length}</span></div>
+                    <div className="ss-item"><span>flag</span><span className="ss-val">{rules.filter((r) => r.action === "flag").length}</span></div>
+                    <div className="ss-item"><span>ext</span><span className="ss-val">{settings?.enabled ? "bật" : "tắt"}</span></div>
                   </div>
                 </div>
-                {formError && <div className="error-msg">{formError}</div>}
-                {(newFormType === "channelLink") && !formError && (
-                  <div className="url-hint">Hỗ trợ: youtube.com/@handle · youtube.com/channel/UC…</div>
-                )}
-                {(newFormType === "videoLink") && !formError && (
-                  <div className="url-hint">Hỗ trợ: youtube.com/watch?v=… · youtu.be/… · /shorts/…</div>
-                )}
-                {(newFormType === "regex") && !formError && (
-                  <div className="url-hint">Regex khớp với title và tên kênh, không phân biệt hoa/thường.</div>
-                )}
-              </div>
 
-              {/* Table */}
-              <div className="table-wrap">
-                {visible.length === 0 ? (
-                  <div className="empty-table">
-                    <strong>Chưa có rules</strong>
-                    Thêm rule phía trên để bắt đầu
+                {/* Right 40%: sample video card + AI suggestions card */}
+                <div className="content-side">
+
+                  {/* UC04: Create rule from sample video */}
+                  <div className="card">
+                    <div className="sample-header">Tạo rule từ video mẫu</div>
+                    <div className="sample-row">
+                      <input
+                        className="input grow"
+                        value={sampleUrl}
+                        onChange={(e) => { setSampleUrl(e.target.value); setSampleEntity(null); setSampleNotFound(false) }}
+                        onKeyDown={(e) => e.key === "Enter" && void lookupSampleVideo()}
+                        placeholder="youtube.com/watch?v=…"
+                      />
+                      <button className="btn" onClick={() => void lookupSampleVideo()}>
+                        Tra cứu
+                      </button>
+                    </div>
+
+                    {sampleNotFound && (
+                      <div className="sample-not-found">
+                        Video chưa được xem trong phiên này — mở video trên YouTube trước.
+                      </div>
+                    )}
+
+                    {sampleEntity && (
+                      <div className="sample-result">
+                        <div className="sample-meta">
+                          <strong>Title:</strong> {sampleEntity.title || "—"}
+                        </div>
+                        <div className="sample-meta">
+                          <strong>Kênh:</strong> {sampleEntity.channelName || "—"}
+                        </div>
+                        <div className="sample-row sample-row-wrap">
+                          <select
+                            className="select"
+                            value={sampleRuleChoice}
+                            onChange={(e) => setSampleRuleChoice(e.target.value as typeof sampleRuleChoice)}
+                          >
+                            {sampleEntity.title && <option value="keyword_title">Từ khóa từ title</option>}
+                            {sampleEntity.channelName && <option value="channelName">Tên kênh</option>}
+                            {sampleEntity.channelId && <option value="channelId">ID kênh</option>}
+                            <option value="videoId">Video ID</option>
+                          </select>
+                          <div className="action-seg">
+                            <button
+                              className={`seg-btn ${sampleAction === "hide" ? "sel-hide" : ""}`}
+                              onClick={() => setSampleAction("hide")}
+                            >Ẩn</button>
+                            <button
+                              className={`seg-btn ${sampleAction === "flag" ? "sel-flag" : ""}`}
+                              onClick={() => setSampleAction("flag")}
+                            >⚑</button>
+                          </div>
+                          <button className="btn btn-primary btn-sm-wide" onClick={() => void createRuleFromSample()}>
+                            Tạo rule
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Loại</th>
-                        <th>Target</th>
-                        <th>Action</th>
-                        <th>Bật</th>
-                        <th>Cập nhật</th>
-                        <th>Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {visible.map((rule) => (
-                        <tr key={rule.id} className={rule.enabled ? "" : "row-disabled"}>
 
-                          <td className="td-type">{displayType(rule.type)}</td>
+                  {/* AI Suggestions */}
+                  <div className="card">
+                    <div className="section-header">
+                      <span className="section-title">Đề xuất AI</span>
+                      {aiSuggestions.length > 0 && (
+                        <span className="badge-count">{aiSuggestions.length}</span>
+                      )}
+                      <button
+                        className="btn ai-analyze-btn"
+                        disabled={aiLoading}
+                        onClick={() => void triggerAiSuggest()}
+                      >
+                        {aiLoading ? "Đang phân tích…" : "Phân tích ngay"}
+                      </button>
+                    </div>
+                    {aiSuggestions.length === 0 ? (
+                      <div className="ai-empty">
+                        Chưa có đề xuất. Nhấn "Phân tích ngay" để AI đề xuất rules dựa trên nhật ký.
+                      </div>
+                    ) : (
+                      aiSuggestions.map((s) => (
+                        <div key={s.id} className="suggestion-item">
+                          <div className="suggestion-rule">
+                            <span className="td-type">{s.type}</span>
+                            {s.targetRaw}
+                            <span className={`action-badge ${s.action}`}>
+                              {s.action === "hide" ? "ẩn" : "⚑"}
+                            </span>
+                          </div>
+                          {s.aiReason && (
+                            <div className="suggestion-reason">{s.aiReason}</div>
+                          )}
+                          <div className="suggestion-actions">
+                            <button
+                              className="btn btn-primary btn-sm"
+                              onClick={() => void resolveAiSuggestion(s.id!, "approved")}
+                            >
+                              Thêm rule
+                            </button>
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => void resolveAiSuggestion(s.id!, "dismissed")}
+                            >
+                              Bỏ qua
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
 
-                          <td className={`td-target ${editId === rule.id ? "editing" : ""}`}>
-                            {editId === rule.id ? (
-                              <input
-                                className="edit-input"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") void saveEdit()
-                                  if (e.key === "Escape") { setEditId(null); setEditValue(""); setFormError("") }
-                                }}
-                                autoFocus
-                              />
-                            ) : (
-                              <span title={rule.targetRaw}>{rule.targetRaw}</span>
-                            )}
-                          </td>
-
-                          <td>
-                            <div className="action-pill">
-                              <button
-                                className={`ap-btn ap-hide ${rule.action === "hide" ? "ap-active" : ""}`}
-                                onClick={() => void changeAction(rule, "hide")}
-                                title="Đặt ẩn"
-                              >ẩn</button>
-                              <button
-                                className={`ap-btn ap-flag ${rule.action === "flag" ? "ap-active" : ""}`}
-                                onClick={() => void changeAction(rule, "flag")}
-                                title="Đặt flag"
-                              >⚑</button>
-                            </div>
-                          </td>
-
-                          <td>
-                            <label className={`switch ${rule.enabled ? "green" : ""}`}>
-                              <input
-                                type="checkbox"
-                                checked={rule.enabled}
-                                onChange={() => void toggleEnabled(rule)}
-                              />
-                              <span className="switch-track" />
-                            </label>
-                          </td>
-
-                          <td className="td-date">{fmtDate(rule.updatedAt)}</td>
-
-                          <td className="td-actions">
-                            {editId === rule.id ? (
-                              <>
-                                <button className="row-btn save" onClick={() => void saveEdit()}>Lưu</button>
-                                <button className="row-btn" onClick={() => { setEditId(null); setEditValue(""); setFormError("") }}>Hủy</button>
-                              </>
-                            ) : (
-                              <>
-                                <button className="row-btn" onClick={() => { setEditId(rule.id!); setEditValue(rule.targetRaw) }}>Sửa</button>
-                                <button className="row-btn del" onClick={() => void deleteRule(rule.id)}>Xóa</button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-
-              {/* Status strip */}
-              <div className="status-strip">
-                <div className="ss-item"><span>tổng</span><span className="ss-val">{rules.length}</span></div>
-                <div className="ss-item"><span>bật</span><span className="ss-val">{rules.filter((r) => r.enabled).length}</span></div>
-                <div className="ss-item"><span>ẩn</span><span className="ss-val">{rules.filter((r) => r.action === "hide").length}</span></div>
-                <div className="ss-item"><span>flag</span><span className="ss-val">{rules.filter((r) => r.action === "flag").length}</span></div>
-                <div className="ss-item"><span>ext</span><span className="ss-val">{settings?.enabled ? "bật" : "tắt"}</span></div>
+                </div>
               </div>
             </>
           ) : (

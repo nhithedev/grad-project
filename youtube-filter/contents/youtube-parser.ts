@@ -110,6 +110,14 @@ function resolveChannelInfo(el: Element): { channelName: string | undefined; cha
     return { channelName, channelId }
   }
 
+  // ── NEW lockup layout: collab channels dùng text node (không có <a>) ────────
+  // VD: "MrBeast [icon] and Beast Philanthropy" — tên kênh là text node thuần
+  const metadataTextEl = el.querySelector<HTMLElement>(".ytContentMetadataViewModelMetadataText")
+  if (metadataTextEl) {
+    const channelName = metadataTextEl.textContent?.replace(/\s+/g, " ").trim() || undefined
+    if (channelName) return { channelName, channelId: undefined }
+  }
+
   // ── LEGACY ytd-* components ────────────────────────────────────────────────
   const legacyAnchor =
     el.querySelector<HTMLAnchorElement>("#channel-name a") ||

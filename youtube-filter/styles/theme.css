@@ -1,23 +1,73 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
 
 :root {
-  --font-sans: 'DM Sans', sans-serif;
-  --font-mono: 'DM Mono', monospace;
+  /* ── Font ── */
+  --font-family-base: "Inter", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, monospace;
 
-  /* Brand */
+  /* ── Font sizes ── */
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 24px;
+  --font-size-xl: 48px;
+
+  /* ── Font weights ── */
+  --font-weight-regular: 400;
+  --font-weight-bold:    700;
+
+  /* ── Line heights ── */
+  --line-height-sm: 20px;
+  --line-height-md: 24px;
+  --line-height-lg: 36px;
+
+  /* ── Border radius ── */
+  --radius-sm:   4px;
+  --radius-none: 0px;
+
+  /* ── Border ── */
+  --border-width-default: 1px;
+
+  /* ── Component heights ── */
+  --component-height-lg: 48px;
+  --component-height-md: 40px;
+  --component-height-sm: 36px;
+
+  /* ── List item height ── */
+  --list-item-height: 44px;
+
+  /* ── Icon sizes ── */
+  --icon-size-sm: 20px;
+  --icon-size-md: 24px;
+
+  /* ── Spacing ── */
+  --spacing-1:  4px;
+  --spacing-2:  8px;
+  --spacing-3:  12px;
+  --spacing-4:  16px;
+  --spacing-5:  20px;
+  --spacing-6:  24px;
+  --spacing-8:  32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+
+  /* ── Shadow ── */
+  --shadow-dropdown: 0px 6px 24px 0px rgba(38, 44, 71, 0.16);
+
+  /* ── Brand ── */
   --color-primary: #ff3d3d;
   --color-primary-hover: #e83535;
   --color-primary-bg: #fff0f0;
   --color-primary-border: #ffd4d4;
 
-  /* Actions — note: focus rings use #ff3d3d88 / #ff3d3d10 (alpha),
-     update those manually in options.css / popup.css if changing primary */
+  /* ── Actions ── */
   --color-hide: #dc2626;
   --color-hide-border: #fca5a5;
   --color-flag: #d97706;
   --color-flag-bg: #fffbeb;
 
-  /* Enabled state */
+  /* ── Enabled state ── */
   --color-green: #16a34a;
   --color-green-bg: #d1fae5;
   --color-green-border: #bbf7d0;

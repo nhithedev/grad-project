@@ -1,0 +1,525 @@
+/*
+ * ============================================================
+ *  DESIGN SYSTEM — CSS STYLE GUIDE
+ *  Font: Inter (Regular 400, Bold 700)
+ *  Không bao gồm màu sắc — chỉ typography, sizing, spacing,
+ *  border, shadow, và cấu trúc component.
+ * ============================================================
+ */
+
+/* ─────────────────────────────────────────────
+   1. IMPORT FONT
+   ───────────────────────────────────────────── */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");
+
+
+/* ─────────────────────────────────────────────
+   2. DESIGN TOKENS
+   ───────────────────────────────────────────── */
+
+:root {
+  /* ── Font family ── */
+  --font-family-base: "Inter", sans-serif;
+
+  /* ── Font sizes ── */
+  --font-size-xs:   12px;
+  --font-size-sm:   14px;
+  --font-size-md:   16px;
+  --font-size-lg:   24px;
+  --font-size-xl:   48px;
+
+  /* ── Font weights ── */
+  --font-weight-regular: 400;
+  --font-weight-bold:    700;
+
+  /* ── Line heights ── */
+  --line-height-xs:   16px;  /* not used directly, reference only */
+  --line-height-sm:   20px;  /* 14px text */
+  --line-height-md:   24px;  /* 16px text */
+  --line-height-lg:   36px;  /* 24px heading */
+  --line-height-xl:   66px;  /* 48px page title */
+
+  /* ── Border radius ── */
+  --radius-sm:   4px;   /* buttons, inputs, dropdowns, cards */
+  --radius-none: 0px;
+
+  /* ── Border width ── */
+  --border-width-default: 1px;
+
+  /* ── Border styles ── */
+  --border-style-solid:  solid;
+  --border-style-dashed: dashed;  /* media input */
+
+  /* ── Component heights (size scale) ── */
+  --component-height-lg: 48px;   /* Large */
+  --component-height-md: 40px;   /* Medium */
+  --component-height-sm: 36px;   /* Small */
+
+  /* ── Dropdown list item height ── */
+  --list-item-height: 44px;
+
+  /* ── Icon sizes ── */
+  --icon-size-sm: 20px;
+  --icon-size-md: 24px;
+
+  /* ── Spacing (internal padding) ── */
+  --spacing-1:  4px;
+  --spacing-2:  8px;
+  --spacing-3:  12px;
+  --spacing-4:  16px;
+  --spacing-5:  20px;
+  --spacing-6:  24px;
+  --spacing-8:  32px;
+  --spacing-10: 40px;
+  --spacing-12: 48px;
+
+  /* ── Page layout ── */
+  --page-gutter:       120px;   /* left/right page padding */
+  --section-gutter:    7.5%;    /* responsive section offset */
+  --section-divider-h: 1px;     /* horizontal rule between sections */
+
+  /* ── Elevation / Shadow ── */
+  --shadow-dropdown: 0px 6px 24px 0px rgba(38, 44, 71, 0.16);
+  --shadow-none:     none;
+}
+
+
+/* ─────────────────────────────────────────────
+   3. TYPOGRAPHY
+   ───────────────────────────────────────────── */
+
+/* Page title — e.g. "01 Button", "02 Input" */
+.text-page-title {
+  font-family:   var(--font-family-base);
+  font-size:     var(--font-size-xl);     /* 48px */
+  font-weight:   var(--font-weight-bold);
+  line-height:   var(--line-height-xl);   /* 66px */
+  white-space:   nowrap;
+  font-style:    normal;
+}
+
+/* Section heading — e.g. "Large", "Medium", "Small" */
+.text-section-heading {
+  font-family:   var(--font-family-base);
+  font-size:     var(--font-size-lg);     /* 24px */
+  font-weight:   var(--font-weight-bold);
+  line-height:   var(--line-height-lg);   /* 36px */
+  white-space:   nowrap;
+  font-style:    normal;
+}
+
+/* Body — large (16px), used in component values */
+.text-body-lg {
+  font-family:   var(--font-family-base);
+  font-size:     var(--font-size-md);     /* 16px */
+  font-weight:   var(--font-weight-regular);
+  line-height:   var(--line-height-md);   /* 24px */
+  font-style:    normal;
+}
+
+/* Body — small (14px), used in labels & captions */
+.text-body-sm {
+  font-family:   var(--font-family-base);
+  font-size:     var(--font-size-sm);     /* 14px */
+  font-weight:   var(--font-weight-regular);
+  line-height:   var(--line-height-sm);   /* 20px */
+  font-style:    normal;
+}
+
+/* Field label / title (above input/dropdown) */
+.text-field-label {
+  font-family:   var(--font-family-base);
+  font-size:     var(--font-size-sm);     /* 14px */
+  font-weight:   var(--font-weight-regular);
+  line-height:   var(--line-height-sm);   /* 20px */
+  font-style:    normal;
+}
+
+
+/* ─────────────────────────────────────────────
+   4. BUTTONS
+   ───────────────────────────────────────────── */
+
+/*
+  Button size scale
+  ─────────────────────────────────────────────
+  Large  : height 48px, font 16px, line-height 24px
+  Medium : height 40px, font 16px, line-height 24px
+  Small  : height 36px, font 14px, line-height 20px
+
+  Variants: Regular Button | Icon Button | Icon Only
+  Types:    Primary | Secondary | White | Destructive | Destructive Secondary
+*/
+
+.btn {
+  display:          inline-flex;
+  align-items:      center;
+  justify-content:  center;
+  border-radius:    var(--radius-sm);
+  font-family:      var(--font-family-base);
+  font-weight:      var(--font-weight-regular);
+  font-style:       normal;
+  white-space:      nowrap;
+  cursor:           pointer;
+  border-width:     var(--border-width-default);
+  border-style:     var(--border-style-solid);
+  gap:              var(--spacing-2);         /* icon–text gap */
+}
+
+/* Size: Large */
+.btn-lg {
+  height:      var(--component-height-lg);   /* 48px */
+  padding-inline: var(--spacing-6);          /* 24px */
+  font-size:   var(--font-size-md);          /* 16px */
+  line-height: var(--line-height-md);        /* 24px */
+}
+
+/* Size: Medium */
+.btn-md {
+  height:      var(--component-height-md);   /* 40px */
+  padding-inline: var(--spacing-6);          /* 24px */
+  font-size:   var(--font-size-md);          /* 16px */
+  line-height: var(--line-height-md);        /* 24px */
+}
+
+/* Size: Small */
+.btn-sm {
+  height:      var(--component-height-sm);   /* 36px */
+  padding-inline: var(--spacing-5);          /* 20px */
+  font-size:   var(--font-size-sm);          /* 14px */
+  line-height: var(--line-height-sm);        /* 20px */
+}
+
+/* Icon-only button — square, no text */
+.btn-icon-only.btn-lg { width: var(--component-height-lg); padding-inline: 0; }
+.btn-icon-only.btn-md { width: var(--component-height-md); padding-inline: 0; }
+.btn-icon-only.btn-sm { width: var(--component-height-sm); padding-inline: 0; }
+
+/* Icon inside button */
+.btn .btn-icon {
+  flex-shrink: 0;
+  width:  var(--icon-size-md);   /* 24px */
+  height: var(--icon-size-md);
+}
+
+
+/* ─────────────────────────────────────────────
+   5. INPUTS
+   ───────────────────────────────────────────── */
+
+/*
+  Input size scale
+  ─────────────────────────────────────────────
+  Large  : height 48px, font 16px, padding-x 16px
+  Medium : height 40px, font 16px, padding-x 16px
+  Small  : height 36px, font 14px, padding-x 16px
+
+  Variants: Regular | Icon | Text Area | Number | Media | Search
+*/
+
+.input-field {
+  display:       block;
+  width:         100%;
+  border-radius: var(--radius-sm);
+  border-width:  var(--border-width-default);
+  border-style:  var(--border-style-solid);
+  font-family:   var(--font-family-base);
+  font-weight:   var(--font-weight-regular);
+  font-style:    normal;
+  outline:       none;
+}
+
+/* Size: Large */
+.input-lg {
+  height:      var(--component-height-lg);   /* 48px */
+  padding-inline: var(--spacing-4);          /* 16px */
+  font-size:   var(--font-size-md);          /* 16px */
+  line-height: var(--line-height-md);        /* 24px */
+}
+
+/* Size: Medium */
+.input-md {
+  height:      var(--component-height-md);   /* 40px */
+  padding-inline: var(--spacing-4);          /* 16px */
+  font-size:   var(--font-size-md);          /* 16px */
+  line-height: var(--line-height-md);        /* 24px */
+}
+
+/* Size: Small */
+.input-sm {
+  height:      var(--component-height-sm);   /* 36px */
+  padding-inline: var(--spacing-4);          /* 16px */
+  font-size:   var(--font-size-sm);          /* 14px */
+  line-height: var(--line-height-sm);        /* 20px */
+}
+
+/* Icon input — right-side icon offset */
+.input-with-icon-right.input-lg { padding-right: calc(var(--icon-size-md) + var(--spacing-6)); }  /* 48px */
+.input-with-icon-right.input-md { padding-right: calc(var(--icon-size-md) + var(--spacing-6)); }
+.input-with-icon-right.input-sm { padding-right: calc(var(--icon-size-md) + var(--spacing-2)); }  /* 44px */
+
+/* Search input — left-side icon offset */
+.input-search.input-lg { padding-left: calc(var(--icon-size-md) + var(--spacing-6)); }  /* 48px */
+.input-search.input-md { padding-left: calc(var(--icon-size-md) + var(--spacing-6)); }
+.input-search.input-sm { padding-left: calc(var(--icon-size-md) + var(--spacing-6)); }
+
+/* Icon inside input */
+.input-icon {
+  position: absolute;
+  width:    var(--icon-size-md);    /* 24px */
+  height:   var(--icon-size-md);
+  top:      50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.input-icon-right { right: var(--spacing-3); }  /* 12px (lg/md) | 8px (sm) */
+.input-icon-left  { left:  var(--spacing-4); }  /* 16px */
+
+/* Text area — extends naturally, no fixed height */
+.input-textarea {
+  min-height: var(--component-height-lg);
+  padding-block: var(--spacing-3);
+  resize: vertical;
+}
+
+/* Number input — both-side icon offset */
+.input-number.input-lg {
+  padding-inline: calc(var(--icon-size-md) + var(--spacing-3));  /* 48px each side */
+  text-align: center;
+}
+.input-number.input-md {
+  padding-inline: calc(var(--icon-size-md) + var(--spacing-3));
+  text-align: center;
+}
+.input-number.input-sm {
+  padding-inline: calc(var(--icon-size-md) + var(--spacing-2));  /* 44px each side */
+  text-align: center;
+}
+
+/* Media input — dashed border */
+.input-media {
+  border-style:  var(--border-style-dashed);
+  text-align:    center;
+  cursor:        pointer;
+}
+
+/* Field wrapper (label + input) */
+.input-wrapper {
+  display:        flex;
+  flex-direction: column;
+  gap:            var(--spacing-1);
+}
+
+.input-wrapper .input-label {
+  font-family:  var(--font-family-base);
+  font-size:    var(--font-size-sm);      /* 14px */
+  font-weight:  var(--font-weight-regular);
+  line-height:  var(--line-height-sm);    /* 20px */
+}
+
+
+/* ─────────────────────────────────────────────
+   6. DROPDOWN
+   ───────────────────────────────────────────── */
+
+/*
+  Same height scale as inputs.
+  Arrow icon: 24×24px, positioned right 8px.
+*/
+
+.dropdown-field {
+  position:      relative;
+  display:       flex;
+  align-items:   center;
+  border-radius: var(--radius-sm);
+  border-width:  var(--border-width-default);
+  border-style:  var(--border-style-solid);
+  font-family:   var(--font-family-base);
+  font-weight:   var(--font-weight-regular);
+  cursor:        pointer;
+}
+
+.dropdown-field.dropdown-lg {
+  height:      var(--component-height-lg);
+  padding-left:  var(--spacing-4);
+  padding-right: var(--spacing-8);
+  font-size:   var(--font-size-md);
+  line-height: var(--line-height-md);
+}
+
+.dropdown-field.dropdown-md {
+  height:      var(--component-height-md);
+  padding-left:  var(--spacing-4);
+  padding-right: var(--spacing-8);
+  font-size:   var(--font-size-md);
+  line-height: var(--line-height-md);
+}
+
+.dropdown-field.dropdown-sm {
+  height:      var(--component-height-sm);
+  padding-left:  var(--spacing-4);
+  padding-right: var(--spacing-8);
+  font-size:   var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+/* Arrow icon */
+.dropdown-arrow {
+  position:  absolute;
+  right:     var(--spacing-2);    /* 8px */
+  top:       50%;
+  transform: translateY(-50%);
+  width:     var(--icon-size-md);
+  height:    var(--icon-size-md);
+  pointer-events: none;
+}
+
+/* Leading icon variant — additional left offset */
+.dropdown-field.has-icon {
+  padding-left: calc(var(--icon-size-md) + var(--spacing-6));   /* 48px */
+}
+.dropdown-leading-icon {
+  position: absolute;
+  left:     var(--spacing-4);    /* 16px */
+  top:      50%;
+  transform: translateY(-50%);
+  width:    var(--icon-size-md);
+  height:   var(--icon-size-md);
+  pointer-events: none;
+}
+
+/* Dropdown list panel */
+.dropdown-list {
+  position:      absolute;
+  top:           100%;
+  left:          0;
+  right:         0;
+  border-radius: var(--radius-sm);
+  box-shadow:    var(--shadow-dropdown);
+  overflow:      hidden;
+  z-index:       10;
+}
+
+/* Individual list item */
+.dropdown-item {
+  display:     flex;
+  align-items: center;
+  height:      var(--list-item-height);   /* 44px */
+  padding-inline: var(--spacing-4);       /* 16px */
+  font-family: var(--font-family-base);
+  font-size:   var(--font-size-md);       /* 16px */
+  line-height: var(--line-height-md);     /* 24px */
+  font-weight: var(--font-weight-regular);
+  cursor:      pointer;
+}
+
+
+/* ─────────────────────────────────────────────
+   7. ICONS
+   ───────────────────────────────────────────── */
+
+.icon {
+  display:     inline-block;
+  flex-shrink: 0;
+}
+
+.icon-sm {
+  width:  var(--icon-size-sm);   /* 20px */
+  height: var(--icon-size-sm);
+}
+
+.icon-md {
+  width:  var(--icon-size-md);   /* 24px */
+  height: var(--icon-size-md);
+}
+
+
+/* ─────────────────────────────────────────────
+   8. COMPONENT STATES (structural only)
+   ───────────────────────────────────────────── */
+
+/*
+  States: Default | Hover | Active | Focus | Error | Success | Disabled
+  Only structural rules — colours live in theme tokens.
+*/
+
+.is-disabled {
+  pointer-events: none;
+  cursor:         not-allowed;
+  opacity:        0.6;
+}
+
+/* Focus ring — to be coloured by theme */
+.is-focus {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+/* Error / Success — only border-width reinforced structurally */
+.is-error,
+.is-success {
+  border-width: var(--border-width-default);
+}
+
+
+/* ─────────────────────────────────────────────
+   9. LAYOUT & PAGE STRUCTURE
+   ───────────────────────────────────────────── */
+
+/* Page shell */
+.page {
+  position: relative;
+  min-height: 100%;
+}
+
+/* Page title block */
+.page-title-block {
+  position:   absolute;
+  top:        120px;
+  left:       var(--page-gutter);   /* 120px */
+}
+
+/* Content section panel */
+.section-panel {
+  position: relative;
+  padding-inline: 7.5%;             /* --section-gutter */
+  padding-block:  var(--spacing-8);
+}
+
+/* Horizontal section divider */
+.section-divider {
+  width:  85%;                      /* 7.5% on each side */
+  margin-inline: 7.5%;
+  height: var(--section-divider-h);
+}
+
+
+/* ─────────────────────────────────────────────
+   10. SHADOW UTILITIES
+   ───────────────────────────────────────────── */
+
+.shadow-dropdown {
+  box-shadow: var(--shadow-dropdown);
+}
+
+.shadow-none {
+  box-shadow: var(--shadow-none);
+}
+
+
+/* ─────────────────────────────────────────────
+   11. BORDER UTILITIES
+   ───────────────────────────────────────────── */
+
+.border-default {
+  border-width: var(--border-width-default);
+  border-style: var(--border-style-solid);
+  border-radius: var(--radius-sm);
+}
+
+.border-dashed {
+  border-width: var(--border-width-default);
+  border-style: var(--border-style-dashed);
+  border-radius: var(--radius-sm);
+}

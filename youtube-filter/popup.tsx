@@ -106,6 +106,14 @@ export default function Popup() {
     setRules(updated)
   }
 
+  async function changeAction(rule: Rule) {
+    if (!rule.id) return
+    const action = rule.action === "hide" ? "flag" : "hide"
+    const updated = await send<Rule[]>({ type: "UPDATE_RULE", payload: { id: rule.id, patch: { action } } })
+    setRules(updated)
+    await refreshTabs()
+  }
+
   async function deleteRule(id?: number) {
     if (!id) return
     const updated = await send<Rule[]>({ type: "DELETE_RULE", payload: { id } })
@@ -228,9 +236,14 @@ export default function Popup() {
               <div key={rule.id} className={`rule-row ${rule.enabled ? "" : "disabled"}`}>
                 <span className="rule-type-badge">{typeBadge(rule.type)}</span>
                 <span className="rule-target" title={rule.targetRaw}>{rule.targetRaw}</span>
-                <span className={`badge ${rule.action === "hide" ? "badge-hide" : "badge-flag"}`}>
+                <button
+                  className={`badge ${rule.action === "hide" ? "badge-hide" : "badge-flag"}`}
+                  title={`Đổi sang ${rule.action === "hide" ? "flag" : "ẩn"}`}
+                  onClick={() => void changeAction(rule)}
+                  style={{ border: "none", cursor: "pointer", padding: "2px 6px" }}
+                >
                   {rule.action === "hide" ? "ẩn" : "⚑"}
-                </span>
+                </button>
                 <button
                   className="rule-action-btn"
                   title={rule.enabled ? "tắt" : "bật"}

@@ -6,4 +6,5 @@ export interface Settings {
   debugMode: boolean
   matchScopes: string[]
   activeProfileId: number | null
+  overlayImageUrl?: string
 }
