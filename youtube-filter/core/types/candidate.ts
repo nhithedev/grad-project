@@ -5,6 +5,7 @@ export interface VideoCandidate {
   title: string
   channelName?: string
   channelId?: string
+  description?: string
   pageType: YouTubePageType
   source: "dom"
   url?: string

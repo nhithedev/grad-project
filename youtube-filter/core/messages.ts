@@ -2,6 +2,8 @@ import type { Rule, RuleList } from "~core/types/rule"
 import type { Settings } from "~core/types/settings"
 import type { YouTubePageType } from "~core/types/candidate"
 import type { Profile } from "~core/types/profile"
+import type { ReviewItem } from "~core/types/review-item"
+import type { AiSuggestion } from "~core/types/ai-suggestion"
 
 export type MessageType =
   | "GET_SETTINGS"
@@ -30,6 +32,12 @@ export type MessageType =
   | "CREATE_RULE_LIST"
   | "DELETE_RULE_LIST"
   | "GET_ENTITY_BY_VIDEO_ID"
+  | "GET_REVIEW_QUEUE"
+  | "ADD_TO_REVIEW_QUEUE"
+  | "RESOLVE_REVIEW_ITEM"
+  | "GET_AI_SUGGESTIONS"
+  | "TRIGGER_AI_SUGGEST"
+  | "RESOLVE_AI_SUGGESTION"
 
 export interface Message<T = unknown> {
   type: MessageType
@@ -75,6 +83,7 @@ export interface CacheEntityPayload {
   channelId?: string
   channelName?: string
   title: string
+  description?: string
   pageType: YouTubePageType
   url?: string
 }
@@ -132,3 +141,27 @@ export interface CreateRuleListPayload {
 export interface DeleteRuleListPayload {
   id: number
 }
+
+export interface AddToReviewQueuePayload {
+  videoId: string
+  title?: string
+  channelName?: string
+  channelId?: string
+  aiReason?: string
+  aiConfidence?: number
+  addedBy: "ai" | "user"
+}
+
+export interface ResolveReviewItemPayload {
+  id: number
+  status: "approved" | "dismissed"
+  createRule?: CreateRulePayload
+}
+
+export interface ResolveAiSuggestionPayload {
+  id: number
+  status: "approved" | "dismissed"
+}
+
+export type GetReviewQueueResponse = MessageResponse<ReviewItem[]>
+export type GetAiSuggestionsResponse = MessageResponse<AiSuggestion[]>

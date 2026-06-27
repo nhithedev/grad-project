@@ -58,6 +58,12 @@ function injectStyles() {
       overflow: hidden;
       text-overflow: ellipsis;
     }
+    mark.yt-filter-highlight {
+      background: rgba(245, 166, 35, 0.45);
+      border-radius: 2px;
+      padding: 0 1px;
+    }
+
     /* Placeholder hiển thị thay cho video bị hide khi debugMode */
     .yt-filter-hide-placeholder {
       box-sizing: border-box;
@@ -99,6 +105,83 @@ function clearPreviousMarks(el: Element) {
   el.classList.remove("yt-filter-flagged", "yt-filter-hidden")
   el.removeAttribute(FILTER_ATTR)
   el.querySelector(".yt-filter-reason")?.remove()
+  el.querySelectorAll("mark.yt-filter-highlight").forEach((mark) => {
+    const parent = mark.parentNode
+    if (!parent) return
+    parent.replaceChild(document.createTextNode(mark.textContent ?? ""), mark)
+    parent.normalize()
+  })
+}
+
+function highlightTextInElement(el: HTMLElement, keyword: string): void {
+  const lower = keyword.toLowerCase()
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+  const nodes: Text[] = []
+  let node: Node | null
+  while ((node = walker.nextNode())) {
+    if ((node as Text).textContent?.toLowerCase().includes(lower)) nodes.push(node as Text)
+  }
+  for (const textNode of nodes) {
+    const text = textNode.textContent ?? ""
+    const idx = text.toLowerCase().indexOf(lower)
+    if (idx === -1) continue
+    const mark = document.createElement("mark")
+    mark.className = "yt-filter-highlight"
+    mark.textContent = text.slice(idx, idx + keyword.length)
+    const frag = document.createDocumentFragment()
+    if (idx > 0) frag.appendChild(document.createTextNode(text.slice(0, idx)))
+    frag.appendChild(mark)
+    if (idx + keyword.length < text.length) frag.appendChild(document.createTextNode(text.slice(idx + keyword.length)))
+    textNode.parentNode?.replaceChild(frag, textNode)
+  }
+}
+
+function highlightRegexInElement(el: HTMLElement, re: RegExp): void {
+  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+  const nodes: Text[] = []
+  let node: Node | null
+  while ((node = walker.nextNode())) nodes.push(node as Text)
+  for (const textNode of nodes) {
+    const text = textNode.textContent ?? ""
+    re.lastIndex = 0
+    const m = re.exec(text)
+    if (!m) continue
+    const mark = document.createElement("mark")
+    mark.className = "yt-filter-highlight"
+    mark.textContent = m[0]
+    const frag = document.createDocumentFragment()
+    if (m.index > 0) frag.appendChild(document.createTextNode(text.slice(0, m.index)))
+    frag.appendChild(mark)
+    if (m.index + m[0].length < text.length) frag.appendChild(document.createTextNode(text.slice(m.index + m[0].length)))
+    textNode.parentNode?.replaceChild(frag, textNode)
+  }
+}
+
+function applyTextHighlight(containerEl: Element, rule: { type: string; targetRaw: string }): void {
+  const titleEl = containerEl.querySelector<HTMLElement>(
+    "a#video-title, a#video-title-link, #video-title, a.ytLockupMetadataViewModelTitle"
+  )
+  const chEl = containerEl.querySelector<HTMLElement>(
+    "#channel-name a, ytd-channel-name a, a.ytAttributedStringLink"
+  )
+  const descEl = containerEl.querySelector<HTMLElement>("yt-formatted-string.metadata-snippet-text")
+
+  if (rule.type === "keyword") {
+    if (titleEl) highlightTextInElement(titleEl, rule.targetRaw)
+    if (chEl) highlightTextInElement(chEl, rule.targetRaw)
+    if (descEl) highlightTextInElement(descEl, rule.targetRaw)
+  } else if (rule.type === "channelName") {
+    if (chEl) highlightTextInElement(chEl, rule.targetRaw)
+  } else if (rule.type === "regex") {
+    try {
+      const re = new RegExp(rule.targetRaw, "gi")
+      if (titleEl) highlightRegexInElement(titleEl, re)
+      re.lastIndex = 0
+      if (chEl) highlightRegexInElement(chEl, re)
+      re.lastIndex = 0
+      if (descEl) highlightRegexInElement(descEl, re)
+    } catch {}
+  }
 }
 
 function removePlaceholderFor(containerEl: Element) {
@@ -192,6 +275,7 @@ async function applyHighlights() {
         ...candidate,
         channelName: candidate.channelName ?? cached.channelName,
         channelId: candidate.channelId ?? cached.channelId,
+        description: candidate.description ?? cached.description,
       }
     }
 
@@ -211,6 +295,8 @@ async function applyHighlights() {
       containerEl.classList.add("yt-filter-flagged")
       containerEl.setAttribute(FILTER_ATTR, "flagged")
       flagCount++
+      const winnerForHighlight = rules.find((r) => r.id === decision.matchedRuleIds[0])
+      if (winnerForHighlight) applyTextHighlight(containerEl, winnerForHighlight)
     } else if (decision.action === "hide") {
       containerEl.classList.add("yt-filter-hidden")
       containerEl.setAttribute(FILTER_ATTR, "hidden")

@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+:root {
+  --font-sans: 'DM Sans', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+
+  /* Brand */
+  --color-primary: #ff3d3d;
+  --color-primary-hover: #e83535;
+  --color-primary-bg: #fff0f0;
+  --color-primary-border: #ffd4d4;
+
+  /* Actions — note: focus rings use #ff3d3d88 / #ff3d3d10 (alpha),
+     update those manually in options.css / popup.css if changing primary */
+  --color-hide: #dc2626;
+  --color-hide-border: #fca5a5;
+  --color-flag: #d97706;
+  --color-flag-bg: #fffbeb;
+
+  /* Enabled state */
+  --color-green: #16a34a;
+  --color-green-bg: #d1fae5;
+  --color-green-border: #bbf7d0;
+}

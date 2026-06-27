@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import "./styles/options.css"
+import { useEffect, useMemo, useState } from "react"
 import type { Rule, RuleType, RuleAction } from "~core/types/rule"
 import type { Settings } from "~core/types/settings"
 import type { MatchLog } from "~core/types/match-log"
 import type { Profile } from "~core/types/profile"
+import type { AiSuggestion } from "~core/types/ai-suggestion"
 import type {
   CreateRulePayload,
   DeleteProfilePayload,
@@ -10,6 +12,7 @@ import type {
   GetEntityByVideoIdPayload,
   Message,
   MessageResponse,
+  ResolveAiSuggestionPayload,
   SetActiveProfilePayload,
   ToggleRulePayload,
   UpdateRulePayload,
@@ -72,417 +75,6 @@ const FILTER_LABEL: Record<RuleType, string> = {
   regex: "Regex",
 }
 
-// ─── styles ───────────────────────────────────────────────────────────────────
-
-const css = `
-  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
-
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-  html, body {
-    font-family: 'DM Sans', sans-serif;
-    background: #ffffff;
-    color: #111111;
-    font-size: 14px;
-    line-height: 1.5;
-    min-height: 100vh;
-  }
-
-  /* layout */
-  .layout { display: flex; min-height: 100vh; }
-
-  .sidebar {
-    width: 220px;
-    flex-shrink: 0;
-    background: #f9f9f9;
-    border-right: 1px solid #ebebeb;
-    display: flex;
-    flex-direction: column;
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
-  }
-
-  .sidebar-logo {
-    padding: 18px 18px 14px;
-    border-bottom: 1px solid #ebebeb;
-    display: flex; align-items: center; gap: 10px;
-  }
-  .sidebar-logo-mark {
-    width: 28px; height: 28px;
-    background: #ff3d3d;
-    border-radius: 7px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 700; color: #fff; letter-spacing: -0.5px;
-    flex-shrink: 0;
-  }
-  .sidebar-logo-text { font-size: 14px; font-weight: 600; letter-spacing: -0.3px; color: #111111; }
-  .sidebar-logo-sub { font-size: 10px; color: #aaaaaa; font-family: 'DM Mono', monospace; }
-
-  /* nav tabs */
-  .nav-tabs {
-    display: flex;
-    gap: 4px;
-    padding: 10px 12px;
-    border-bottom: 1px solid #ebebeb;
-  }
-  .nav-tab {
-    flex: 1;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 500;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 6px;
-    padding: 6px 8px;
-    cursor: pointer;
-    text-align: center;
-    color: #999999;
-    transition: all 0.15s;
-  }
-  .nav-tab:hover { background: #eeeeee; color: #555555; }
-  .nav-tab.active { background: #fff0f0; color: #ff3d3d; border-color: #ffd4d4; }
-
-  .sidebar-section { padding: 14px 12px 8px; }
-  .sidebar-label {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.08em;
-    color: #cccccc; text-transform: uppercase; padding: 0 6px; margin-bottom: 4px;
-  }
-
-  .filter-btn {
-    display: flex; align-items: center; justify-content: space-between;
-    width: 100%; background: none; border: none;
-    font-family: 'DM Sans', sans-serif;
-    font-size: 13px; color: #888888; cursor: pointer;
-    padding: 7px 8px; border-radius: 7px;
-    transition: all 0.12s; text-align: left;
-  }
-  .filter-btn:hover { background: #eeeeee; color: #333333; }
-  .filter-btn.active { background: #ffffff; color: #111111; font-weight: 500; box-shadow: 0 0 0 1px #e0e0e0; }
-  .filter-count {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; color: #cccccc; background: #eeeeee;
-    padding: 1px 6px; border-radius: 4px;
-  }
-  .filter-btn.active .filter-count { color: #888888; background: #f0f0f0; }
-
-  .sidebar-settings { margin-top: auto; padding: 14px 12px; border-top: 1px solid #ebebeb; }
-
-  .setting-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 8px 6px; border-radius: 6px; cursor: pointer;
-    transition: background 0.12s;
-  }
-  .setting-row:hover { background: #eeeeee; }
-  .setting-label { font-size: 13px; color: #999999; }
-  .setting-label.active { color: #111111; }
-
-  /* toggle switch */
-  .switch { position: relative; width: 36px; height: 20px; }
-  .switch input { opacity: 0; width: 0; height: 0; }
-  .switch-track {
-    position: absolute; inset: 0;
-    background: #e0e0e0; border-radius: 20px;
-    transition: background 0.2s; cursor: pointer;
-  }
-  .switch-track::after {
-    content: '';
-    position: absolute;
-    left: 3px; top: 3px;
-    width: 14px; height: 14px;
-    background: #aaaaaa; border-radius: 50%;
-    transition: all 0.2s;
-  }
-  .switch input:checked + .switch-track { background: #ffd4d4; }
-  .switch input:checked + .switch-track::after { background: #ff3d3d; transform: translateX(16px); }
-  .switch.green input:checked + .switch-track { background: #d1fae5; }
-  .switch.green input:checked + .switch-track::after { background: #16a34a; transform: translateX(16px); }
-
-  /* main */
-  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-  .topbar {
-    padding: 16px 24px;
-    border-bottom: 1px solid #ebebeb;
-    display: flex; align-items: center; justify-content: space-between;
-    background: #ffffff;
-    position: sticky; top: 0; z-index: 10;
-  }
-  .topbar-title { font-size: 15px; font-weight: 600; letter-spacing: -0.3px; color: #111111; }
-  .topbar-sub { font-size: 12px; color: #aaaaaa; font-family: 'DM Mono', monospace; margin-top: 1px; }
-  .topbar-actions { display: flex; gap: 8px; align-items: center; }
-
-  .btn {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 500;
-    border: 1px solid #e0e0e0;
-    background: #f7f7f7; color: #777777;
-    border-radius: 7px; padding: 6px 12px;
-    cursor: pointer; transition: all 0.15s;
-    white-space: nowrap;
-  }
-  .btn:hover { background: #eeeeee; color: #111111; border-color: #d0d0d0; }
-  .btn-primary { background: #ff3d3d; color: #fff; border-color: #ff3d3d; }
-  .btn-primary:hover { background: #e83535; border-color: #e83535; color: #fff; }
-  .btn-ghost { background: transparent; border-color: transparent; color: #aaaaaa; }
-  .btn-ghost:hover { background: #f5f5f5; color: #555555; border-color: transparent; }
-  .btn-danger { background: #fff0f0; color: #dc2626; border-color: #ffd4d4; }
-  .btn-danger:hover { background: #fee2e2; border-color: #fca5a5; }
-
-  /* add form */
-  .add-form {
-    padding: 18px 24px;
-    border-bottom: 1px solid #ebebeb;
-    display: grid;
-    gap: 10px;
-    background: #fafafa;
-  }
-  .form-row { display: flex; gap: 10px; align-items: flex-start; }
-  .form-col { display: flex; flex-direction: column; gap: 4px; }
-  .form-label { font-size: 11px; color: #aaaaaa; font-weight: 500; letter-spacing: 0.03em; }
-
-  .select, .input {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    background: #ffffff;
-    border: 1px solid #e0e0e0;
-    border-radius: 7px;
-    padding: 8px 10px;
-    color: #111111;
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-  }
-  .select { cursor: pointer; }
-  .select:focus, .input:focus {
-    border-color: #ff3d3d88;
-    box-shadow: 0 0 0 2px #ff3d3d10;
-  }
-  .input::placeholder { color: #cccccc; }
-  .input.grow { flex: 1; }
-
-  .action-seg {
-    display: flex;
-    background: #ffffff;
-    border: 1px solid #e0e0e0;
-    border-radius: 7px;
-    overflow: hidden;
-  }
-  .seg-btn {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 12px; font-weight: 500;
-    border: none; cursor: pointer;
-    padding: 8px 14px;
-    background: transparent; color: #bbbbbb;
-    transition: all 0.15s;
-  }
-  .seg-btn + .seg-btn { border-left: 1px solid #e0e0e0; }
-  .seg-btn.sel-hide { background: #fff0f0; color: #dc2626; }
-  .seg-btn.sel-flag { background: #fffbeb; color: #d97706; }
-
-  .error-msg { font-size: 12px; color: #dc2626; }
-  .url-hint { font-size: 11px; color: #aaaaaa; font-family: 'DM Mono', monospace; }
-
-  /* table */
-  .table-wrap { flex: 1; overflow-y: auto; }
-  .table-wrap::-webkit-scrollbar { width: 4px; }
-  .table-wrap::-webkit-scrollbar-track { background: transparent; }
-  .table-wrap::-webkit-scrollbar-thumb { background: #e8e8e8; border-radius: 2px; }
-
-  table { width: 100%; border-collapse: collapse; }
-
-  thead th {
-    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
-    color: #aaaaaa; text-transform: uppercase;
-    padding: 10px 16px;
-    text-align: left;
-    background: #f9f9f9;
-    border-bottom: 1px solid #ebebeb;
-    position: sticky; top: 0;
-    white-space: nowrap;
-  }
-
-  tbody tr {
-    border-bottom: 1px solid #f5f5f5;
-    transition: background 0.1s;
-  }
-  tbody tr:hover { background: #fafafa; }
-  tbody tr.row-disabled { opacity: 0.38; }
-
-  td {
-    padding: 11px 16px;
-    vertical-align: middle;
-    font-size: 13px;
-    color: #333333;
-  }
-
-  .td-type {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; color: #aaaaaa;
-    white-space: nowrap;
-  }
-
-  .td-target {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px; color: #333333;
-    max-width: 240px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .td-target.editing { padding: 6px 16px; }
-  .edit-input {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px; width: 100%;
-    background: #ffffff; border: 1px solid #ff3d3d88;
-    border-radius: 6px; padding: 6px 8px;
-    color: #111111; outline: none;
-    box-shadow: 0 0 0 2px #ff3d3d10;
-  }
-
-  /* inline action toggle */
-  .action-pill {
-    display: inline-flex;
-    align-items: center;
-    border-radius: 5px;
-    overflow: hidden;
-    border: 1px solid #e5e5e5;
-  }
-  .ap-btn {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 10px; font-weight: 500;
-    border: none; cursor: pointer;
-    padding: 3px 7px;
-    background: transparent; color: #cccccc;
-    transition: all 0.12s;
-  }
-  .ap-btn + .ap-btn { border-left: 1px solid #e5e5e5; }
-  .ap-btn.ap-hide.ap-active { background: #fff0f0; color: #dc2626; }
-  .ap-btn.ap-flag.ap-active { background: #fffbeb; color: #d97706; }
-
-  .td-date {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; color: #cccccc;
-    white-space: nowrap;
-  }
-
-  .td-actions { white-space: nowrap; }
-  .row-btn {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 11px; color: #888888;
-    background: none; border: 1px solid #e5e5e5;
-    border-radius: 5px; padding: 4px 8px;
-    cursor: pointer; transition: all 0.12s;
-    margin-right: 4px;
-  }
-  .row-btn:hover { background: #f5f5f5; color: #333333; border-color: #d0d0d0; }
-  .row-btn.save { color: #16a34a; border-color: #bbf7d0; }
-  .row-btn.save:hover { background: #f0fdf4; }
-  .row-btn.del:hover { background: #fff0f0; color: #dc2626; border-color: #ffd4d4; }
-
-  /* action badge in logs */
-  .action-badge {
-    font-size: 10px; font-weight: 500;
-    padding: 2px 7px; border-radius: 4px;
-    font-family: 'DM Sans', sans-serif;
-    display: inline-block;
-  }
-  .action-badge.hide { background: #fff0f0; color: #dc2626; }
-  .action-badge.flag { background: #fffbeb; color: #d97706; }
-
-  /* empty */
-  .empty-table {
-    padding: 60px 24px;
-    text-align: center;
-    color: #cccccc;
-    font-size: 13px;
-  }
-  .empty-table strong { display: block; font-size: 15px; color: #aaaaaa; margin-bottom: 6px; }
-
-  /* status strip */
-  .status-strip {
-    padding: 8px 24px;
-    border-top: 1px solid #ebebeb;
-    display: flex; gap: 16px;
-    font-family: 'DM Mono', monospace;
-    font-size: 11px; color: #cccccc;
-    background: #fafafa;
-  }
-  .ss-item { display: flex; gap: 5px; }
-  .ss-val { color: #888888; }
-
-  /* import/export feedback */
-  .import-status { font-size: 11px; color: #16a34a; }
-  .import-status.error { color: #dc2626; }
-
-  /* profile bar */
-  .profile-bar {
-    padding: 8px 24px;
-    border-bottom: 1px solid #ebebeb;
-    background: #f9f9f9;
-    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  }
-  .profile-bar-label {
-    font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
-    text-transform: uppercase; color: #bbbbbb; flex-shrink: 0;
-  }
-  .profile-select {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    background: #ffffff; border: 1px solid #e0e0e0;
-    border-radius: 7px; padding: 5px 9px;
-    color: #333333; cursor: pointer; outline: none;
-    transition: border-color 0.15s;
-  }
-  .profile-select:focus { border-color: #ff3d3d88; }
-  .profile-active-badge {
-    font-size: 10px; font-weight: 500;
-    background: #fff0f0; color: #ff3d3d;
-    border: 1px solid #ffd4d4;
-    border-radius: 4px; padding: 2px 7px;
-    font-family: 'DM Mono', monospace;
-  }
-  .profile-create-row { display: flex; gap: 6px; align-items: center; margin-left: auto; }
-  .profile-create-input {
-    font-family: 'DM Mono', monospace;
-    font-size: 11px;
-    background: #ffffff; border: 1px solid #e0e0e0;
-    border-radius: 6px; padding: 5px 8px;
-    color: #111111; outline: none; width: 140px;
-    transition: border-color 0.15s;
-  }
-  .profile-create-input::placeholder { color: #cccccc; }
-  .profile-create-input:focus { border-color: #ff3d3d88; }
-
-  /* sample video lookup */
-  .sample-section {
-    padding: 14px 24px;
-    border-bottom: 1px solid #ebebeb;
-    background: #fffdf5;
-    display: grid;
-    gap: 10px;
-  }
-  .sample-header {
-    font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
-    text-transform: uppercase; color: #d97706;
-  }
-  .sample-row { display: flex; gap: 8px; align-items: center; }
-  .sample-result {
-    padding: 10px 12px;
-    background: #ffffff; border: 1px solid #e0e0e0;
-    border-radius: 8px; display: grid; gap: 6px;
-  }
-  .sample-meta { font-size: 12px; color: #555555; font-family: 'DM Mono', monospace; }
-  .sample-meta strong { color: #111111; }
-  .sample-hint { font-size: 11px; color: #aaaaaa; font-family: 'DM Mono', monospace; }
-  .sample-not-found {
-    font-size: 12px; color: #aaaaaa; font-style: italic;
-  }
-
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateY(-6px); }
-    to   { opacity: 1; transform: none; }
-  }
-  tbody tr { animation: slideIn 0.15s ease; }
-`
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string) {
@@ -529,11 +121,6 @@ export default function OptionsPage() {
   const [editId, setEditId]     = useState<number | null>(null)
   const [editValue, setEditValue] = useState("")
 
-  // import/export
-  const [importMsg, setImportMsg] = useState("")
-  const [importErr, setImportErr] = useState(false)
-  const importRef                 = useRef<HTMLInputElement>(null)
-
   // logs
   const [logs, setLogs]             = useState<MatchLog[]>([])
   const [logsLoading, setLogsLoading] = useState(false)
@@ -550,19 +137,25 @@ export default function OptionsPage() {
   const [sampleRuleChoice, setSampleRuleChoice] = useState<"keyword_title" | "channelName" | "channelId" | "videoId">("keyword_title")
   const [sampleAction, setSampleAction]         = useState<RuleAction>("hide")
 
+  // Phase 5: AI suggestions
+  const [aiSuggestions, setAiSuggestions]       = useState<AiSuggestion[]>([])
+  const [aiLoading, setAiLoading]               = useState(false)
+
   useEffect(() => {
     void load()
   }, [])
 
   async function load() {
     try {
-      const [s, p] = await Promise.all([
+      const [s, p, suggestions] = await Promise.all([
         send<Settings>({ type: "GET_SETTINGS" }),
         send<Profile[]>({ type: "GET_PROFILES" }),
+        send<AiSuggestion[]>({ type: "GET_AI_SUGGESTIONS" }),
       ])
       setSettings(s)
       setProfiles(p)
       setNewAction(s.defaultAction ?? "hide")
+      setAiSuggestions(suggestions)
 
       const initProfileId = s.activeProfileId ?? p[0]?.id ?? null
       setViewProfileId(initProfileId)
@@ -681,40 +274,6 @@ export default function OptionsPage() {
     await refreshTabs()
   }
 
-  // ── import / export ───────────────────────────────────────────────────────
-
-  function exportRules() {
-    const blob = new Blob([JSON.stringify(rules, null, 2)], { type: "application/json" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url; a.download = "yt-filter-rules.json"; a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  async function importRules(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    e.target.value = ""
-    setImportMsg(""); setImportErr(false)
-    try {
-      const parsed = JSON.parse(await file.text())
-      if (!Array.isArray(parsed)) { setImportMsg("File không hợp lệ."); setImportErr(true); return }
-      let count = 0
-      for (const r of parsed) {
-        if (!r.type || !r.targetRaw) continue
-        await send<Rule[]>({ type: "CREATE_RULE", payload: { type: r.type, targetRaw: r.targetRaw, action: r.action, profileId: viewProfileId } })
-        count++
-      }
-      const payload: GetAllRulesPayload = { profileId: viewProfileId }
-      const updated = await send<Rule[]>({ type: "GET_ALL_RULES", payload })
-      setRules(updated)
-      setImportMsg(`Đã import ${count} rules.`)
-      await refreshTabs()
-    } catch {
-      setImportMsg("Lỗi đọc file."); setImportErr(true)
-    }
-  }
-
   // ── profile actions ───────────────────────────────────────────────────────
 
   async function switchViewProfile(profileId: number | null) {
@@ -807,6 +366,30 @@ export default function OptionsPage() {
     await refreshTabs()
   }
 
+  // ── ai suggestions ────────────────────────────────────────────────────────
+
+  async function triggerAiSuggest() {
+    setAiLoading(true)
+    try {
+      const updated = await send<AiSuggestion[]>({ type: "TRIGGER_AI_SUGGEST" })
+      setAiSuggestions(updated)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  async function resolveAiSuggestion(id: number, status: "approved" | "dismissed") {
+    const payload: ResolveAiSuggestionPayload = { id, status }
+    const updated = await send<AiSuggestion[]>({ type: "RESOLVE_AI_SUGGESTION", payload })
+    setAiSuggestions(updated)
+    if (status === "approved") {
+      const rulesPayload: GetAllRulesPayload = { profileId: viewProfileId }
+      const updatedRules = await send<Rule[]>({ type: "GET_ALL_RULES", payload: rulesPayload })
+      setRules(updatedRules)
+      await refreshTabs()
+    }
+  }
+
   // ── derived ───────────────────────────────────────────────────────────────
 
   const countByType = useMemo(() => {
@@ -821,17 +404,11 @@ export default function OptionsPage() {
   )
 
   if (loading) {
-    return (
-      <>
-        <style>{css}</style>
-        <div style={{ padding: 40, color: "#aaaaaa", fontSize: 13, fontFamily: "DM Sans, sans-serif" }}>đang tải…</div>
-      </>
-    )
+    return <div className="loading-state">đang tải…</div>
   }
 
   return (
     <>
-      <style>{css}</style>
       <div className="layout">
 
         {/* Sidebar */}
@@ -879,7 +456,7 @@ export default function OptionsPage() {
 
           {/* Settings */}
           <div className="sidebar-settings">
-            <div className="sidebar-label" style={{ marginBottom: 8 }}>Cài đặt</div>
+            <div className="sidebar-label">Cài đặt</div>
 
             <label className="setting-row">
               <span className={`setting-label ${settings?.enabled ? "active" : ""}`}>
@@ -909,26 +486,23 @@ export default function OptionsPage() {
               </label>
             </label>
 
-            <div className="setting-row" style={{ cursor: "default" }}>
+            <div className="setting-row setting-row-static">
               <span className="setting-label">Mặc định</span>
-              <div className="action-seg" style={{ borderRadius: 6 }}>
+              <div className="action-seg action-seg-sm">
                 <button
-                  className={`seg-btn ${settings?.defaultAction === "hide" ? "sel-hide" : ""}`}
-                  style={{ padding: "4px 9px", fontSize: 11 }}
+                  className={`seg-btn seg-btn-sm ${settings?.defaultAction === "hide" ? "sel-hide" : ""}`}
                   onClick={() => void saveSettings({ defaultAction: "hide" })}
                 >Ẩn</button>
                 <button
-                  className={`seg-btn ${settings?.defaultAction === "flag" ? "sel-flag" : ""}`}
-                  style={{ padding: "4px 9px", fontSize: 11 }}
+                  className={`seg-btn seg-btn-sm ${settings?.defaultAction === "flag" ? "sel-flag" : ""}`}
                   onClick={() => void saveSettings({ defaultAction: "flag" })}
                 >⚑</button>
               </div>
             </div>
 
-            <div style={{ marginTop: 12 }}>
+            <div className="sidebar-debug">
               <button
-                className="btn btn-ghost"
-                style={{ fontSize: 11, padding: "5px 8px", width: "100%" }}
+                className="btn btn-ghost btn-debug"
                 onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL("debug-panel.html") })}
               >
                 🔍 debug panel
@@ -950,16 +524,7 @@ export default function OptionsPage() {
                   </div>
                   <div className="topbar-sub">{visible.length} rules</div>
                 </div>
-                <div className="topbar-actions">
-                  {importMsg && (
-                    <span className={`import-status ${importErr ? "error" : ""}`}>{importMsg}</span>
-                  )}
-                  <button className="btn" onClick={exportRules}>Export</button>
-                  <label className="btn" style={{ cursor: "pointer" }}>
-                    Import
-                    <input ref={importRef} type="file" accept=".json" onChange={(e) => void importRules(e)} style={{ display: "none" }} />
-                  </label>
-                </div>
+                <div className="topbar-actions" />
               </div>
 
               {/* Profile bar */}
@@ -981,23 +546,26 @@ export default function OptionsPage() {
                   }
                 </select>
 
-                {viewProfileId != null && settings?.activeProfileId !== viewProfileId && (
-                  <button
-                    className="btn btn-primary"
-                    style={{ fontSize: 11, padding: "5px 12px" }}
-                    onClick={() => void useThisProfile()}
-                  >
-                    Sử dụng profile này
-                  </button>
-                )}
                 {viewProfileId != null && settings?.activeProfileId === viewProfileId && (
                   <span className="profile-active-badge">đang dùng</span>
                 )}
+                {viewProfileId != null && settings?.activeProfileId !== viewProfileId && (
+                  <>
+                    <span className="profile-applied-label">
+                      áp dụng: {profiles.find((p) => p.id === settings?.activeProfileId)?.name ?? "—"}
+                    </span>
+                    <button
+                      className="btn btn-primary btn-sm-wide"
+                      onClick={() => void useThisProfile()}
+                    >
+                      Dùng hồ sơ này
+                    </button>
+                  </>
+                )}
 
-                {viewProfileId != null && (
+                {viewProfileId != null && profiles.length > 1 && (
                   <button
-                    className="btn btn-danger"
-                    style={{ fontSize: 11, padding: "5px 10px" }}
+                    className="btn btn-danger btn-sm"
                     onClick={() => void deleteCurrentProfile()}
                   >
                     Xóa hồ sơ
@@ -1013,8 +581,7 @@ export default function OptionsPage() {
                     placeholder="Tên hồ sơ mới…"
                   />
                   <button
-                    className="btn"
-                    style={{ fontSize: 11 }}
+                    className="btn btn-sm"
                     onClick={() => void createProfile()}
                     disabled={!newProfileName.trim()}
                   >
@@ -1053,7 +620,7 @@ export default function OptionsPage() {
                     <div className="sample-meta">
                       <strong>Kênh:</strong> {sampleEntity.channelName || "—"}
                     </div>
-                    <div className="sample-row" style={{ flexWrap: "wrap", gap: 8 }}>
+                    <div className="sample-row sample-row-wrap">
                       <select
                         className="select"
                         value={sampleRuleChoice}
@@ -1074,11 +641,62 @@ export default function OptionsPage() {
                           onClick={() => setSampleAction("flag")}
                         >⚑</button>
                       </div>
-                      <button className="btn btn-primary" style={{ fontSize: 11, padding: "6px 12px" }} onClick={() => void createRuleFromSample()}>
+                      <button className="btn btn-primary btn-sm-wide" onClick={() => void createRuleFromSample()}>
                         Tạo rule
                       </button>
                     </div>
                   </div>
+                )}
+              </div>
+
+              {/* AI Suggestions */}
+              <div className="ai-section">
+                <div className="section-header">
+                  <span className="section-title">Đề xuất AI</span>
+                  {aiSuggestions.length > 0 && (
+                    <span className="badge-count">{aiSuggestions.length}</span>
+                  )}
+                  <button
+                    className="btn ai-analyze-btn"
+                    disabled={aiLoading}
+                    onClick={() => void triggerAiSuggest()}
+                  >
+                    {aiLoading ? "Đang phân tích…" : "Phân tích ngay"}
+                  </button>
+                </div>
+                {aiSuggestions.length === 0 ? (
+                  <div className="ai-empty">
+                    Chưa có đề xuất. Nhấn "Phân tích ngay" để AI đề xuất rules dựa trên nhật ký.
+                  </div>
+                ) : (
+                  aiSuggestions.map((s) => (
+                    <div key={s.id} className="suggestion-item">
+                      <div className="suggestion-rule">
+                        <span className="td-type">{s.type}</span>
+                        {s.targetRaw}
+                        <span className={`action-badge ${s.action}`}>
+                          {s.action === "hide" ? "ẩn" : "⚑"}
+                        </span>
+                      </div>
+                      {s.aiReason && (
+                        <div className="suggestion-reason">{s.aiReason}</div>
+                      )}
+                      <div className="suggestion-actions">
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => void resolveAiSuggestion(s.id!, "approved")}
+                        >
+                          Thêm rule
+                        </button>
+                        <button
+                          className="btn btn-sm"
+                          onClick={() => void resolveAiSuggestion(s.id!, "dismissed")}
+                        >
+                          Bỏ qua
+                        </button>
+                      </div>
+                    </div>
+                  ))
                 )}
               </div>
 
@@ -1098,7 +716,7 @@ export default function OptionsPage() {
                     </select>
                   </div>
 
-                  <div className="form-col" style={{ flex: 1 }}>
+                  <div className="form-col form-col-flex">
                     <span className="form-label">
                       {newFormType === "channelLink" || newFormType === "videoLink" ? "URL" : "Từ khóa / Tên"}
                     </span>
@@ -1125,8 +743,8 @@ export default function OptionsPage() {
                     </div>
                   </div>
 
-                  <div className="form-col" style={{ justifyContent: "flex-end" }}>
-                    <span className="form-label" style={{ visibility: "hidden" }}>x</span>
+                  <div className="form-col form-col-end">
+                    <span className="form-label invisible">x</span>
                     <button className="btn btn-primary" onClick={() => void createRule()}>
                       Thêm rule
                     </button>
@@ -1267,7 +885,7 @@ export default function OptionsPage() {
               <div className="table-wrap">
                 {logsLoading ? (
                   <div className="empty-table">
-                    <strong style={{ color: "#cccccc" }}>đang tải…</strong>
+                    <strong>đang tải…</strong>
                   </div>
                 ) : logs.length === 0 ? (
                   <div className="empty-table">
@@ -1288,9 +906,9 @@ export default function OptionsPage() {
                     <tbody>
                       {logs.map((log) => (
                         <tr key={log.id}>
-                          <td className="td-target" style={{ maxWidth: 200 }} title={log.title}>{log.title}</td>
-                          <td className="td-type" style={{ maxWidth: 130 }}>{log.channelName || "—"}</td>
-                          <td className="td-type" style={{ maxWidth: 160 }} title={`${log.ruleType}: ${log.ruleTarget}`}>
+                          <td className="td-target log-title" title={log.title}>{log.title}</td>
+                          <td className="td-type log-channel">{log.channelName || "—"}</td>
+                          <td className="td-type log-rule" title={`${log.ruleType}: ${log.ruleTarget}`}>
                             {displayType(log.ruleType)}: {log.ruleTarget}
                           </td>
                           <td>

@@ -125,6 +125,15 @@ function resolveChannelInfo(el: Element): { channelName: string | undefined; cha
   }
 }
 
+// ─── Description resolution ───────────────────────────────────────────────────
+
+function resolveDescription(el: Element): string | undefined {
+  return (
+    el.querySelector<HTMLElement>("yt-formatted-string.metadata-snippet-text")
+      ?.textContent?.trim() || undefined
+  )
+}
+
 // ─── Main parse function ──────────────────────────────────────────────────────
 
 export function parseVideoCard(el: Element): VideoCandidate | null {
@@ -156,6 +165,7 @@ export function parseVideoCard(el: Element): VideoCandidate | null {
     title: rawTitle,
     channelName,
     channelId,
+    description: resolveDescription(el),
     pageType,
     source: "dom",
     url: href ? new URL(href, location.origin).toString() : undefined,

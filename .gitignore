@@ -1,3 +1,6 @@
+# --- Node backend ---
+backend/node_modules/
+
 # --- Python backend (trong folder backend/) ---
 backend/venv/
 backend/.venv/

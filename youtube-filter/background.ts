@@ -6,8 +6,11 @@ import { entitiesRepository } from "~data/repositories/entities.repository"
 import { matchLogRepository } from "~data/repositories/match-log.repository"
 import { profilesRepository } from "~data/repositories/profiles.repository"
 import { ruleListsRepository } from "~data/repositories/rule-lists.repository"
+import { reviewQueueRepository } from "~data/repositories/review-queue.repository"
+import { aiSuggestionsRepository } from "~data/repositories/ai-suggestions.repository"
 import { db } from "~data/db/app-db"
 import type {
+  AddToReviewQueuePayload,
   CacheEntitiesBatchPayload,
   CacheEntityPayload,
   CreateProfilePayload,
@@ -22,13 +25,43 @@ import type {
   LogMatchPayload,
   Message,
   MessageResponse,
+  ResolveAiSuggestionPayload,
+  ResolveReviewItemPayload,
   SetActiveProfilePayload,
   ToggleRulePayload,
   UpdateProfilePayload,
   UpdateRulePayload
 } from "~core/messages"
+import type { AiSuggestion } from "~core/types/ai-suggestion"
 import type { Settings } from "~core/types/settings"
 import { nowIso } from "~data/utils/normalize"
+
+const BACKEND_URL = process.env.PLASMO_PUBLIC_BACKEND_URL ?? ""
+
+async function initialize() {
+  const defaultProfileId = await profilesRepository.ensureDefault()
+  const settings = await settingsRepository.getSettings()
+  if (settings.activeProfileId === null) {
+    await settingsRepository.updateSettings({ activeProfileId: defaultProfileId })
+  }
+}
+
+void initialize()
+
+async function callBackend<T>(path: string, body: unknown): Promise<T | null> {
+  if (!BACKEND_URL) return null
+  try {
+    const res = await fetch(`${BACKEND_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) return null
+    return res.json() as T
+  } catch {
+    return null
+  }
+}
 
 chrome.runtime.onMessage.addListener((message: Message, _sender, sendResponse) => {
   handleMessage(message)
@@ -185,6 +218,7 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
             channelId: payload.channelId,
             channelName: payload.channelName,
             title: payload.title,
+            description: payload.description,
             pageType: payload.pageType,
             url: payload.url,
           })
@@ -271,12 +305,84 @@ async function handleMessage(message: Message): Promise<MessageResponse> {
       return { success: true, data: [] }
     }
 
+    case "GET_REVIEW_QUEUE":
+      return { success: true, data: await reviewQueueRepository.getAll() }
+
+    case "ADD_TO_REVIEW_QUEUE": {
+      const payload = message.payload as AddToReviewQueuePayload
+      await reviewQueueRepository.add({ ...payload, addedAt: nowIso(), status: "pending" })
+      const queue = await reviewQueueRepository.getAll()
+      await updateBadge(queue.length)
+      return { success: true, data: queue }
+    }
+
+    case "RESOLVE_REVIEW_ITEM": {
+      const payload = message.payload as ResolveReviewItemPayload
+      await reviewQueueRepository.resolve(payload.id, payload.status)
+      if (payload.status === "approved" && payload.createRule) {
+        const settings = await settingsRepository.getSettings()
+        const profileId = payload.createRule.profileId !== undefined
+          ? payload.createRule.profileId
+          : settings.activeProfileId
+        await rulesRepository.createRule({ ...payload.createRule, profileId })
+      }
+      const queue = await reviewQueueRepository.getAll()
+      await updateBadge(queue.length)
+      return { success: true, data: queue }
+    }
+
+    case "GET_AI_SUGGESTIONS":
+      return { success: true, data: await aiSuggestionsRepository.getAll() }
+
+    case "TRIGGER_AI_SUGGEST": {
+      const logs = await matchLogRepository.getRecent()
+      const rules = await rulesRepository.getAllRules()
+      const result = await callBackend<{ suggestions: AiSuggestion[] }>("/ai/suggest", {
+        recentLogs: logs,
+        existingRules: rules,
+      })
+      if (result?.suggestions?.length) {
+        const withMeta = result.suggestions.map((s) => ({
+          ...s,
+          status: "pending" as const,
+          createdAt: nowIso(),
+        }))
+        await aiSuggestionsRepository.addBatch(withMeta)
+      }
+      return { success: true, data: await aiSuggestionsRepository.getAll() }
+    }
+
+    case "RESOLVE_AI_SUGGESTION": {
+      const payload = message.payload as ResolveAiSuggestionPayload
+      const suggestion = await aiSuggestionsRepository.getById(payload.id)
+      await aiSuggestionsRepository.resolve(payload.id, payload.status)
+      if (payload.status === "approved" && suggestion) {
+        const settings = await settingsRepository.getSettings()
+        await rulesRepository.createRule({
+          type: suggestion.type,
+          targetRaw: suggestion.targetRaw,
+          action: suggestion.action,
+          profileId: settings.activeProfileId,
+        })
+      }
+      return { success: true, data: await aiSuggestionsRepository.getAll() }
+    }
+
     default:
       return {
         success: false,
         error: `Unknown message type: ${message.type}`
       }
   }
+}
+
+async function updateBadge(count: number) {
+  try {
+    await chrome.action.setBadgeText({ text: count > 0 ? String(count) : "" })
+    if (count > 0) {
+      await chrome.action.setBadgeBackgroundColor({ color: "#ff3d3d" })
+    }
+  } catch {}
 }
 
 export {}

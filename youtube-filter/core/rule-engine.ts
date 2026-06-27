@@ -34,12 +34,13 @@ function matchesRule(rule: Rule, candidate: VideoCandidate): boolean {
     case "keyword":
       return (
         normalizeText(candidate.title).includes(target) ||
-        (candidate.channelName ? normalizeText(candidate.channelName).includes(target) : false)
+        (candidate.channelName ? normalizeText(candidate.channelName).includes(target) : false) ||
+        (candidate.description ? normalizeText(candidate.description).includes(target) : false)
       )
     case "regex": {
       try {
         const re = new RegExp(rule.targetRaw, "i")
-        return re.test(candidate.title ?? "") || re.test(candidate.channelName ?? "")
+        return re.test(candidate.title ?? "") || re.test(candidate.channelName ?? "") || re.test(candidate.description ?? "")
       } catch {
         return false
       }

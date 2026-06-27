@@ -31,7 +31,7 @@ export class ProfilesRepository {
   async ensureDefault(): Promise<number> {
     const existing = await db.profiles.toCollection().first()
     if (existing?.id) return existing.id
-    return this.create("Mặc định")
+    return this.create("default")
   }
 }
 

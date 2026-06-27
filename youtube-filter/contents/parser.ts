@@ -139,6 +139,7 @@ async function scanAndCacheCandidates() {
       channelId: candidate.channelId,
       channelName: candidate.channelName,
       title: candidate.title,
+      description: candidate.description,
       pageType: candidate.pageType,
       url: candidate.url,
     })

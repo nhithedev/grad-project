@@ -6,6 +6,7 @@ export interface EntityCache {
   channelId?: string
   channelName?: string
   title?: string
+  description?: string
   pageType?: YouTubePageType
   url?: string
   lastSeenAt: string
