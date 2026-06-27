@@ -45,6 +45,10 @@ backend/**/*.tar.gz
 backend/**/*.npz
 backend/**/*.npy
 
+# --- HTTP client files (thường chứa API keys / tokens) ---
+*.http
+*.rest
+
 # --- Secrets / env cho toàn project ---
 .env
 .env.*
