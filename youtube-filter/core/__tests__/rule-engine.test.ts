@@ -22,6 +22,8 @@ const candidate = (overrides?: Partial<VideoCandidate>): VideoCandidate => ({
   channelName: "MrBeast",
   channelId: "UCX6OQ3DkcsbYNE6H8uQQuVA",
   pageType: "home",
+  source: "dom",
+  seenAt: "2024-01-01T00:00:00.000Z",
   ...overrides
 })
 
