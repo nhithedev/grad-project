@@ -83,7 +83,7 @@ Thumbs.db
 /node_modules
 /.pnp
 .pnp.js
-
+youtube-filter/node_modules/*
 # testing
 /coverage
 

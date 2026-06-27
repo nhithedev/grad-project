@@ -218,7 +218,7 @@
 <body>
 
 <h1>YouTube Filter — Debug Panel</h1>
-<p class="subtitle">phase 1–4 milestone checker · paste vào DevTools console của options page</p>
+<p class="subtitle">phase 1–9 pipeline checker · chạy trong context của options page (F12 → Console)</p>
 
 <div class="instruction">
   <strong>Cách dùng:</strong><br>
@@ -226,7 +226,8 @@
   2. Copy toàn bộ nội dung script bên dưới → paste vào Console → Enter<br>
   3. Hoặc mở file này trong browser → mở DevTools của file này → chạy trực tiếp<br>
   <br>
-  <strong>Lưu ý:</strong> panel này cần chạy trong <em>context của options page</em> để có <code>chrome.runtime</code>
+  <strong>Lưu ý:</strong> panel này cần chạy trong <em>context của options page</em> để có <code>chrome.runtime</code><br>
+  <strong>AI checks (Phase 9):</strong> bật <code>MOCK_AI=true</code> trong <code>backend/.env</code> nếu không có Gemini quota
 </div>
 
 <div class="run-all-bar">
@@ -305,7 +306,7 @@
 <!-- Phase 3 -->
 <div class="phase">
   <div class="phase-header">
-    Phase 3 — IndexedDB / Dexie schema
+    Phase 3 — IndexedDB / Dexie schema v5
     <span class="phase-badge">5 checks</span>
   </div>
 
@@ -313,7 +314,7 @@
     <div class="status-dot" id="dot-db-open"></div>
     <div>
       <div class="check-label">DB youtubeFilterDB mở được</div>
-      <div class="check-desc">indexedDB.open('youtubeFilterDB') thành công</div>
+      <div class="check-desc">indexedDB.open('youtubeFilterDB') thành công, version = 5</div>
       <div class="detail-box" id="detail-db-open"></div>
     </div>
     <button class="run-btn" data-check-id="db-open">Run</button>
@@ -322,8 +323,8 @@
   <div class="check-row" id="row-db-stores">
     <div class="status-dot" id="dot-db-stores"></div>
     <div>
-      <div class="check-label">Đủ 3 object stores</div>
-      <div class="check-desc">ruleLists, rules, entitiesCache phải tồn tại</div>
+      <div class="check-label">Đủ 7 object stores (v5)</div>
+      <div class="check-desc">profiles, ruleLists, rules, entitiesCache, matchLogs, reviewQueue, aiSuggestions</div>
       <div class="detail-box" id="detail-db-stores"></div>
     </div>
     <button class="run-btn" data-check-id="db-stores">Run</button>
@@ -435,6 +436,196 @@
       <div class="detail-box" id="detail-watch-title"></div>
     </div>
     <button class="run-btn" data-check-id="watch-title">Run</button>
+  </div>
+</div>
+
+<!-- Phase 5 -->
+<div class="phase">
+  <div class="phase-header">
+    Phase 5 — Profiles &amp; Settings v2
+    <span class="phase-badge">4 checks</span>
+  </div>
+
+  <div class="check-row" id="row-profiles-list">
+    <div class="status-dot" id="dot-profiles-list"></div>
+    <div>
+      <div class="check-label">GET_PROFILES trả được array</div>
+      <div class="check-desc">phải có ít nhất 1 profile (default được tạo lúc initialize)</div>
+      <div class="detail-box" id="detail-profiles-list"></div>
+    </div>
+    <button class="run-btn" data-check-id="profiles-list">Run</button>
+  </div>
+
+  <div class="check-row" id="row-settings-active-profile">
+    <div class="status-dot" id="dot-settings-active-profile"></div>
+    <div>
+      <div class="check-label">settings.activeProfileId được set</div>
+      <div class="check-desc">không được null sau initialize() — nếu null, reload extension</div>
+      <div class="detail-box" id="detail-settings-active-profile"></div>
+    </div>
+    <button class="run-btn" data-check-id="settings-active-profile">Run</button>
+  </div>
+
+  <div class="check-row" id="row-settings-overlay">
+    <div class="status-dot" id="dot-settings-overlay"></div>
+    <div>
+      <div class="check-label">settings.overlayImageUrl field tồn tại</div>
+      <div class="check-desc">kể cả rỗng "" — field phải có trong object (Phase 6 feature)</div>
+      <div class="detail-box" id="detail-settings-overlay"></div>
+    </div>
+    <button class="run-btn" data-check-id="settings-overlay">Run</button>
+  </div>
+
+  <div class="check-row" id="row-rules-by-profile">
+    <div class="status-dot" id="dot-rules-by-profile"></div>
+    <div>
+      <div class="check-label">GET_ALL_RULES với profileId payload</div>
+      <div class="check-desc">trả rules scoped theo activeProfile — không phải tất cả rules</div>
+      <div class="detail-box" id="detail-rules-by-profile"></div>
+    </div>
+    <button class="run-btn" data-check-id="rules-by-profile">Run</button>
+  </div>
+</div>
+
+<!-- Phase 6 -->
+<div class="phase">
+  <div class="phase-header">
+    Phase 6 — Entity enrichment (channelId / description / lookup)
+    <span class="phase-badge">3 checks</span>
+  </div>
+
+  <div class="check-row" id="row-entities-channelid">
+    <div class="status-dot" id="dot-entities-channelid"></div>
+    <div>
+      <div class="check-label">Entities có channelId</div>
+      <div class="check-desc">ít nhất 1 entity với channelId — cần để rule type channelId hoạt động</div>
+      <div class="detail-box" id="detail-entities-channelid"></div>
+    </div>
+    <button class="run-btn" data-check-id="entities-channelid">Run</button>
+  </div>
+
+  <div class="check-row" id="row-entities-description">
+    <div class="status-dot" id="dot-entities-description"></div>
+    <div>
+      <div class="check-label">Entities có description snippet</div>
+      <div class="check-desc">chỉ có trên search page (/results) — warn nếu 0 là bình thường</div>
+      <div class="detail-box" id="detail-entities-description"></div>
+    </div>
+    <button class="run-btn" data-check-id="entities-description">Run</button>
+  </div>
+
+  <div class="check-row" id="row-entity-lookup">
+    <div class="status-dot" id="dot-entity-lookup"></div>
+    <div>
+      <div class="check-label">GET_ENTITY_BY_VIDEO_ID hoạt động</div>
+      <div class="check-desc">dùng videoId từ entity đầu tiên trong DB → tra cứu lại đúng entity</div>
+      <div class="detail-box" id="detail-entity-lookup"></div>
+    </div>
+    <button class="run-btn" data-check-id="entity-lookup">Run</button>
+  </div>
+</div>
+
+<!-- Phase 7 -->
+<div class="phase">
+  <div class="phase-header">
+    Phase 7 — Match logging &amp; reason string
+    <span class="phase-badge">3 checks</span>
+  </div>
+
+  <div class="check-row" id="row-matchlog-write">
+    <div class="status-dot" id="dot-matchlog-write"></div>
+    <div>
+      <div class="check-label">LOG_MATCH ghi được</div>
+      <div class="check-desc">tạo test log với videoId "__debug_log_test__" → xuất hiện trong GET_MATCH_LOGS</div>
+      <div class="detail-box" id="detail-matchlog-write"></div>
+    </div>
+    <button class="run-btn" data-check-id="matchlog-write">Run</button>
+  </div>
+
+  <div class="check-row" id="row-matchlog-read">
+    <div class="status-dot" id="dot-matchlog-read"></div>
+    <div>
+      <div class="check-label">GET_MATCH_LOGS trả được array</div>
+      <div class="check-desc">kể cả rỗng phải là array; warn nếu 0 log</div>
+      <div class="detail-box" id="detail-matchlog-read"></div>
+    </div>
+    <button class="run-btn" data-check-id="matchlog-read">Run</button>
+  </div>
+
+  <div class="check-row" id="row-reason-field">
+    <div class="status-dot" id="dot-reason-field"></div>
+    <div>
+      <div class="check-label">Reason string có "(field)" format</div>
+      <div class="check-desc">format mới: "keyword:target (title)" — xác nhận matchesRule() trả field name</div>
+      <div class="detail-box" id="detail-reason-field"></div>
+    </div>
+    <button class="run-btn" data-check-id="reason-field">Run</button>
+  </div>
+</div>
+
+<!-- Phase 8 -->
+<div class="phase">
+  <div class="phase-header">
+    Phase 8 — Regex rule type
+    <span class="phase-badge">2 checks</span>
+  </div>
+
+  <div class="check-row" id="row-regex-create">
+    <div class="status-dot" id="dot-regex-create"></div>
+    <div>
+      <div class="check-label">CREATE_RULE type=regex</div>
+      <div class="check-desc">tạo regex rule hợp lệ → xuất hiện trong list với type="regex"</div>
+      <div class="detail-box" id="detail-regex-create"></div>
+    </div>
+    <button class="run-btn" data-check-id="regex-create">Run</button>
+  </div>
+
+  <div class="check-row" id="row-regex-match">
+    <div class="status-dot" id="dot-regex-match"></div>
+    <div>
+      <div class="check-label">Regex pattern match entities</div>
+      <div class="check-desc">test pattern /\w{4,}/ trên titles trong DB — xác nhận JS regex engine hoạt động</div>
+      <div class="detail-box" id="detail-regex-match"></div>
+    </div>
+    <button class="run-btn" data-check-id="regex-match">Run</button>
+  </div>
+</div>
+
+<!-- Phase 9 -->
+<div class="phase">
+  <div class="phase-header">
+    Phase 9 — AI Suggestions (backend)
+    <span class="phase-badge">3 checks</span>
+  </div>
+
+  <div class="check-row" id="row-ai-list">
+    <div class="status-dot" id="dot-ai-list"></div>
+    <div>
+      <div class="check-label">GET_AI_SUGGESTIONS trả được array</div>
+      <div class="check-desc">DB table aiSuggestions accessible — kể cả rỗng là OK</div>
+      <div class="detail-box" id="detail-ai-list"></div>
+    </div>
+    <button class="run-btn" data-check-id="ai-list">Run</button>
+  </div>
+
+  <div class="check-row" id="row-ai-trigger">
+    <div class="status-dot" id="dot-ai-trigger"></div>
+    <div>
+      <div class="check-label">TRIGGER_AI_SUGGEST gọi được</div>
+      <div class="check-desc">pass nếu backend trả suggestions; warn nếu 0 (backend down hoặc thiếu logs)</div>
+      <div class="detail-box" id="detail-ai-trigger"></div>
+    </div>
+    <button class="run-btn" data-check-id="ai-trigger">Run</button>
+  </div>
+
+  <div class="check-row" id="row-ai-resolve">
+    <div class="status-dot" id="dot-ai-resolve"></div>
+    <div>
+      <div class="check-label">RESOLVE_AI_SUGGESTION dismiss hoạt động</div>
+      <div class="check-desc">lấy pending suggestion đầu tiên → dismiss → không còn trong pending</div>
+      <div class="detail-box" id="detail-ai-resolve"></div>
+    </div>
+    <button class="run-btn" data-check-id="ai-resolve">Run</button>
   </div>
 </div>
 
